@@ -1,0 +1,7 @@
+## Interface: 11302
+## Title: |cFF7FFF72Kiwi|r MBC
+## Notes: Hide buttons and blizzard minimap stuff
+## Author: Michael
+## SavedVariables: KiwiMBCDB
+
+KiwiMBC.lua
