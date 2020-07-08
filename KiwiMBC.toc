@@ -1,4 +1,4 @@
-## Interface: 11304
+## Interface: 11305
 ## Title: |cFF7FFF72Kiwi|r MBC
 ## Notes: Hide buttons and blizzard minimap stuff
 ## Author: Michael
