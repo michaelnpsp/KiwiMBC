@@ -405,6 +405,14 @@ do
 	local menuFrame = CreateFrame("Frame", "KiwiMBCDPopupMenu", UIParent, "UIDropDownMenuTemplate")
 	local menuBoxed = {}
 	local menuAlways = {}
+	-- ranges management
+	local function CreateRange(key, options)
+		local menu = {}
+		for _,value in ipairs(options.range) do
+			table.insert( menu, { arg1 = key, text = type(options.text)=='function' and options.text(value) or options.text, value = value, func = options.func, checked = options.checked } )
+		end
+		return menu
+	end
 	-- blizzard buttons
 	local function BlizGet(info)
 		return not cfg.hide[info.value]
@@ -413,20 +421,27 @@ do
 		cfg.hide[info.value] = not cfg.hide[info.value]
 		UpdateBlizzardVisibility()
 	end
-	local menuTable = {
-		{ text = 'KiwiMBC',          notCheckable= true, isTitle = true },
-		{ text = 'Black Borders', isNotRadio=true, keepShownOnClick=1, checked=function() return cfg.blackBorders; end, func=function() cfg.blackBorders=not cfg.blackBorders; SkinButtons(); end },
-		{ text = 'Always Visible',   notCheckable= true, hasArrow = true, menuList = menuAlways },
-		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
-		{ text = 'Blizzard Buttons', notCheckable= true, hasArrow = true, menuList = {
-			{ text='Zone',      value='zone',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
-			{ text='Clock',     value='clock',    isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
-			{ text='Zoom',      value='zoom',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
-			{ text='Time',      value='time',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
-			{ text='Toggle',    value='toggle',   isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
-			{ text='World Map', value='worldmap', isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
-		} },
-	}
+	-- black borders
+	local function DarkGet(info)
+		return cfg.blackBorders
+	end
+	local function DarkSet(info)
+		cfg.blackBorders = not cfg.blackBorders
+		SkinButtons()
+	end
+	-- delay menus
+	local function DelayText(value)
+		return string.format( "%.1f sec", value / 10 )
+	end
+	local function DelayGet(info)
+		return math.floor( (cfg[info.arg1] or 0.5) * 10 ) == info.value
+	end
+	local function DelaySet(info)
+		cfg[info.arg1] = info.value / 10
+		delayHide = cfg.delayHide or 0.5
+		delayShow = cfg.delayShow or 0.5
+	end
+	local DelayRange = { text = DelayText, checked = DelayGet, func = DelaySet, range = {0,1,2,3,4,5,6,7,8,9,10,15,20,25,30,35,40,45,50} }
 	-- boxed buttons
 	local nonBoxedButtons = { LibDBIcon10_KiwiMBC = true, MiniMapTracking = true }
 	local function BoxedGet(info)
@@ -448,7 +463,7 @@ do
 		cfg.alwaysVisible[info.value] = not cfg.alwaysVisible[info.value] or nil
 		UpdateButtonsVisibility()
 	end
-	-- main
+	-- several submenus
 	local function ButtonAddItem(buttonName)
 		local name = GetButtonHumanName(buttonName)
 		table.insert(menuAlways, {text=name, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=AlwaysGet, func=AlwaysSet} )
@@ -456,9 +471,29 @@ do
 			table.insert(menuBoxed, {text=name, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=BoxedGet, func=BoxedSet} )
 		end
 	end
+	-- main menu
+	local menuTable = {
+		{ text = 'KiwiMBC',          notCheckable= true, isTitle = true },
+		{ text = 'Display Delay',    notCheckable= true, hasArrow = true, menuList = CreateRange('delayShow', DelayRange) },
+		{ text = 'Hide Delay',       notCheckable= true, hasArrow = true, menuList = CreateRange('delayHide', DelayRange) },
+		{ text = 'Always Visible',   notCheckable= true, hasArrow = true, menuList = menuAlways },
+		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
+		{ text = 'Blizzard Buttons', notCheckable= true, hasArrow = true, menuList = {
+			{ text='Zone',      value='zone',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
+			{ text='Clock',     value='clock',    isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
+			{ text='Zoom',      value='zoom',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
+			{ text='Time',      value='time',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
+			{ text='Toggle',    value='toggle',   isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
+			{ text='World Map', value='worldmap', isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
+		} },
+		{ text = 'Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = DarkGet, func = DarkSet },
+	}
 	function addon:ShowPopupMenu()
 		addon.ShowPopupMenu = function()
-			EasyMenu(menuTable, menuFrame, 'cursor', 0 , 0, "MENU", 1)
+			local x, y = GetCursorPosition()
+			local uiScale = UIParent:GetEffectiveScale()
+			UIDropDownMenu_SetAnchor(menuFrame, x/uiScale,y/uiScale, 'TOPRIGHT', UIParent, 'BOTTOMLEFT')
+			EasyMenu(menuTable, menuFrame, nil, 0 , 0, 'MENU', 1)
 		end
 		table.sort(sortedButtons)
 		for _,buttonName in ipairs(sortedButtons) do
