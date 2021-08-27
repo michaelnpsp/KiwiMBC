@@ -199,8 +199,9 @@ local function Boxed_UnboxButton(button)
 end
 
 local function Boxed_LayoutButtons()
-	local count       = cfg.buttonsPerColumn or 50
-	local firstButton = cfg.boxed[1]
+	local max         = (cfg.buttonsPerColumn or 50 ) -1
+	local count       = max
+	local firstButton = kiwiButton
 	local prevButton  = kiwiButton
 	for i,name in ipairs(cfg.boxed) do
 		local button = boxedButtons[name]
@@ -211,7 +212,7 @@ local function Boxed_LayoutButtons()
 				count = count - 1
 			else
 				button:SetPoint('RIGHT', firstButton, 'LEFT', 4, 0)
-				count = (cfg.buttonsPerColumn or 50) - 1
+				count = max
 				firstButton = button
 			end
 			prevButton = button

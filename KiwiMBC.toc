@@ -1,7 +1,15 @@
-## Interface: 11306
+## Interface: 90100
+## Interface-Retail: 90100
+## Interface-Classic: 11306
+## Interface-BCC: 20501
 ## Title: |cFF7FFF72Kiwi|r MBC
-## Notes: Hide buttons and blizzard minimap stuff
-## Author: Michael
+## Notes: Manage minimap buttons stuff
+## Author: MiChaEl
+## Version: @project-version@
 ## SavedVariables: KiwiMBCDB
+
+Libs\LibStub\LibStub.lua
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
 
 KiwiMBC.lua
