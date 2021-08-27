@@ -58,7 +58,6 @@ local Ignore = {
 	UIParent = true,
 	MinimapCluster = true,
 	MinimapButtonFrameDragButton = true,
---	MiniMapTracking = true,
 	MiniMapVoiceChatFrame = true,
 	MiniMapWorldMapButton = true,
 	MiniMapLFGFrame = true,
@@ -117,9 +116,19 @@ end
 local function SkinButton(button)
 	for _,tex in ipairs({button:GetRegions()}) do
 		if tex:IsObjectType('Texture') and tex:GetDrawLayer()=='OVERLAY' then
-			tex:SetVertexColor(0.15,0.15,0.15,1)
+			local rgb = cfg.blackBorders and 0.15 or 1
+			tex:SetVertexColor(rgb,rgb,rgb,1)
 			return
 		end
+	end
+end
+
+local function SkinButtons()
+	for _, button in pairs(minimapButtons) do
+		SkinButton(button)
+	end
+	for _, button in pairs(boxedButtons) do
+		SkinButton(button)
 	end
 end
 
@@ -135,50 +144,59 @@ end
 
 -- boxed buttons management
 local function Boxed_BoxButton(button)
-	local data = {}
-	for i=1,button:GetNumPoints() do
-		data[i] = { button:GetPoint(i) }
+	if button then
+		local data = {}
+		for i=1,button:GetNumPoints() do
+			data[i] = { button:GetPoint(i) }
+		end
+		button.__kbmcSavedPosition = data
+		local name = button:GetName()
+		boxedButtons[name]   = button
+		minimapButtons[name] = nil
+		local boxed = cfg.boxed
+		if not boxed[name] then
+			boxed[name] = true
+			table.insert( boxed, name )
+		end
+		button:SetShown(boxedVisible)
 	end
-	button.__kbmcSavedPosition = data
-	local name = button:GetName()
-	boxedButtons[name]   = button
-	minimapButtons[name] = nil
-	local boxed = cfg.boxed
-	if not boxed[name] then
-		boxed[name] = true
-		table.insert( boxed, name )
-	end
-	button:SetShown(boxedVisible)
 end
 
 local function Boxed_UnboxButton(button)
-	button:ClearAllPoints()
-	for _,points in ipairs(button.__kbmcSavedPosition) do
-		button:SetPoint( unpack(points) )
+	if button then
+		button:ClearAllPoints()
+		for _,points in ipairs(button.__kbmcSavedPosition) do
+			button:SetPoint( unpack(points) )
+		end
+		button.__kbmcSavedPosition = nil
+		local name = button:GetName()
+		boxedButtons[name] = nil
+		minimapButtons[name] = button
+		local boxed = cfg.boxed
+		boxed[name] = nil
+		RemoveTableValue( boxed, name )
 	end
-	button.__kbmcSavedPosition = nil
-	local name = button:GetName()
-	boxedButtons[name] = nil
-	minimapButtons[name] = button
-	local boxed = cfg.boxed
-	boxed[name] = nil
-	RemoveTableValue( boxed, name )
 end
 
 local function Boxed_LayoutButtons()
 	local prevButton = kiwiButton
 	for i,name in ipairs(cfg.boxed) do
 		local button = boxedButtons[name]
-		button:ClearAllPoints()
-		button:SetPoint('TOP',prevButton,'BOTTOM',0,4)
-		prevButton = button
+		if button then
+			button:ClearAllPoints()
+			button:SetPoint('TOP',prevButton,'BOTTOM',0,4)
+			prevButton = button
+		end
 	end
 end
 
 local function Boxed_ToggleVisibility()
 	boxedVisible = not boxedVisible
 	for _,name in ipairs(cfg.boxed) do
-		boxedButtons[name]:SetShown(boxedVisible)
+		local button = boxedButtons[name]
+		if button then
+			button:SetShown(boxedVisible)
+		end
 	end
 end
 
@@ -372,7 +390,7 @@ SlashCmdList.KIWIMBC = function(args)
 		print("  /kmbc zoom     -zoom buttons visibility")
 		print("  /kmbc toggle   -minimap toggle button visibility")
 		print("  /kmbc worldmap -worldmap button visibility")
-		print("  /kmbc delay [1-10] [1-10] - [hide] [show] delay in tenths of a second")
+		print("  /kmbc delay [1-50] [1-50] - [hide] [show] delay in tenths of a second")
 	end
 	print("KiwiMBC setup:")
 	for name in pairs(defaults.hide) do
@@ -397,6 +415,9 @@ do
 	end
 	local menuTable = {
 		{ text = 'KiwiMBC',          notCheckable= true, isTitle = true },
+		{ text = 'Black Borders', isNotRadio=true, keepShownOnClick=1, checked=function() return cfg.blackBorders; end, func=function() cfg.blackBorders=not cfg.blackBorders; SkinButtons(); end },
+		{ text = 'Always Visible',   notCheckable= true, hasArrow = true, menuList = menuAlways },
+		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
 		{ text = 'Blizzard Buttons', notCheckable= true, hasArrow = true, menuList = {
 			{ text='Zone',      value='zone',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
 			{ text='Clock',     value='clock',    isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
@@ -405,8 +426,6 @@ do
 			{ text='Toggle',    value='toggle',   isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
 			{ text='World Map', value='worldmap', isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
 		} },
-		{ text = 'Always Visible',   notCheckable= true, hasArrow = true, menuList = menuAlways },
-		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
 	}
 	-- boxed buttons
 	local nonBoxedButtons = { LibDBIcon10_KiwiMBC = true, MiniMapTracking = true }
