@@ -61,8 +61,6 @@ local Ignore = {
 	MiniMapVoiceChatFrame = true,
 	MiniMapWorldMapButton = true,
 	MiniMapLFGFrame = true,
-	MinimapZoomIn = true,
-	MinimapZoomOut = true,
 	MiniMapMailFrame = true,
 	MiniMapBattlefieldFrame = true,
 	GameTimeFrame = true,
@@ -71,11 +69,18 @@ local Ignore = {
 	QuestieFrameGroup = true,
 }
 
+local Valid = {
+	MinimapZoomIn = true,
+	MinimapZoomOut = true,
+}
+
 -- buttons that cannot be boxed
 local nonBoxedButtons = {
 	LibDBIcon10_KiwiMBC = true,
 	MiniMapTracking = true,
 	GarrisonLandingPageMinimapButton = true,
+	MinimapZoomIn = true,
+	MinimapZoomOut = true,
 }
 
 -- button human description translations
@@ -155,6 +160,7 @@ local function GetButtonHumanName(buttonName)
 		name = string.match(buttonName,'^LibDBIcon10_(.+)$') or gsub(buttonName,'MinimapButton','')
 		name = gsub( name, '[_-]', ' ' )
 		name = gsub( name, 'Broker', '' )
+		name = gsub( name, 'Minimap', '' )
 	end
 	return name
 end
@@ -242,7 +248,7 @@ do
 			local alwaysVisible = cfg.alwaysVisible
 			for buttonName, button in pairs(minimapButtons) do
 				if insideMinimap or not boxedVisible or button~=kiwiButton then
-					button:SetShown( insideMinimap or alwaysVisible[buttonName] )
+					button:SetShown( (insideMinimap or alwaysVisible[buttonName]) and not button.__kiwiHide)
 				end
 			end
 		else
@@ -313,7 +319,7 @@ do
 	local function CollectFrameButtons(frame)
 		for _, button in ipairs({frame:GetChildren()}) do
 			local name = button:GetName()
-			if not minimapButtons[name] and not boxedButtons[name] and button:IsShown() and (button:HasScript('OnClick') or button:HasScript('OnMouseDown')) then
+			if not minimapButtons[name] and not boxedButtons[name] and (Valid[name] or (button:IsShown() and (button:HasScript('OnClick') or button:HasScript('OnMouseDown')))) then
 				if IsValidButtonName(name) then
 					if cfg.boxed[name] then
 						Boxed_BoxButton(button)
@@ -344,7 +350,14 @@ end
 local UpdateBlizzardVisibility
 do
 	local function Hide( name, frame )
-		if frame then frame:SetShown(not cfg.hide[name]) end
+		if frame then
+			local hidden = cfg.hide[name] or nil
+			frame:SetShown(not hidden)
+			frame.__kiwiHide = hidden
+			if hidden then
+				print(name, frame:GetName(), frame.__kiwiHide)
+			end
+		end
 	end
 	local function HideZoneText()
 		MinimapZoneTextButton:SetShown(not cfg.hide.zone)
@@ -429,6 +442,7 @@ SlashCmdList.KIWIMBC = function(args)
 	elseif defaults.hide[arg1] ~= nil then
 		cfg.hide[arg1] = not cfg.hide[arg1]
 		UpdateBlizzardVisibility()
+		UpdateButtonsVisibility()
 	else
 		print("KiwiMBC (Minimap Buttons Control) commands:")
 		print("  /kiwimbc")
@@ -472,6 +486,7 @@ do
 	local function BlizSet(info)
 		cfg.hide[info.value] = not cfg.hide[info.value]
 		UpdateBlizzardVisibility()
+		UpdateButtonsVisibility()
 	end
 	-- black borders
 	local function DarkGet(info)
