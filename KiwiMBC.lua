@@ -110,6 +110,9 @@ local dealyShow = .5
 local boxedButtons = {}
 local boxedVisible = false
 
+-- accept/cancel dialog
+StaticPopupDialogs["KIWIBMC_DIALOG"] = { timeout = 0, whileDead = 1, hideOnEscape = 1, button1 = ACCEPT, button2 = CANCEL }
+
 ---------------------------------------------------------------------------------------------------------
 --- utils
 ---------------------------------------------------------------------------------------------------------
@@ -163,6 +166,20 @@ local function GetButtonHumanName(buttonName)
 		name = gsub( name, 'Minimap', '' )
 	end
 	return name
+end
+
+local function ConfirmDialog(message, funcAccept, funcCancel)
+	local t = StaticPopupDialogs["KIWIBMC_DIALOG"]
+	t.text = message
+	t.OnCancel = funcCancel
+	t.OnAccept = funcAccept
+	StaticPopup_Show ("KIWIBMC_DIALOG")
+end
+
+
+local function CreateDatabase()
+	KiwiMBCDB = {}
+	return KiwiMBCDB
 end
 
 ---------------------------------------------------------------------------------------------------------
@@ -384,8 +401,7 @@ addon:SetScript("OnEvent", function(frame, event, name)
 		addon.__loaded = true
 	end
 	if addon.__loaded and IsLoggedIn() then
-		KiwiMBCDB = CopyTable(defaults, KiwiMBCDB )
-		cfg = KiwiMBCDB
+		cfg = CopyTable(defaults, KiwiMBCDBC or KiwiMBCDB or CreateDatabase())
 		addon:UnregisterAllEvents()
 		addon.minimapLib:Register("KiwiMBC", addon.minimapLDB, cfg.minimapIcon)
 		kiwiButton = addon.minimapLib:GetMinimapButton('KiwiMBC')
@@ -496,6 +512,23 @@ do
 		cfg.blackBorders = not cfg.blackBorders
 		SkinButtons()
 	end
+	-- profile per character or global
+	local function ProfileGet(info)
+		return KiwiMBCDBC~=nil
+	end
+	local function ProfileSet(info)
+		if KiwiMBCDBC then -- switch to global database
+			ConfirmDialog('Current character settings will be removed and the UI will be reloaded. Are you sure you want to use the global profile ?', function()
+				KiwiMBCDBC = nil
+				ReloadUI()
+			end)
+		else -- switch to character database
+			ConfirmDialog('Are you sure you want to use a specific character profile ?', function()
+				KiwiMBCDBC = CopyTable(KiwiMBCDB)
+				ReloadUI()
+			end)
+		end
+	end
 	-- delay menus
 	local function DelayText(value)
 		return string.format( "%.1f sec", value / 10 )
@@ -549,10 +582,6 @@ do
 	-- main menu
 	local menuTable = {
 		{ text = 'KiwiMBC',          notCheckable= true, isTitle = true },
-		{ text = 'Borders', notCheckable= true, hasArrow = true, menuList = {
-			{ text='Light', value='zone', isNotRadio=true, checked= function() return not cfg.blackBorders end, func=function() cfg.blackBorders = nil;  SkinButtons(); end },
-			{ text='Dark',  value='zone', isNotRadio=true, checked= function() return     cfg.blackBorders end, func=function() cfg.blackBorders = true; SkinButtons(); end },
-		} },
 		{ text = 'Show Delay',       notCheckable= true, hasArrow = true, menuList = CreateRange('delayShow', DelayRange) },
 		{ text = 'Hide Delay',       notCheckable= true, hasArrow = true, menuList = CreateRange('delayHide', DelayRange) },
 		{ text = 'Blizzard Buttons', notCheckable= true, hasArrow = true, menuList = {
@@ -566,6 +595,8 @@ do
 		{ text = 'Always Visible',   notCheckable= true, hasArrow = true, menuList = menuAlways },
 		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
 		{ text = 'Buttons per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
+		{ text = 'Draw Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = DarkGet, func = DarkSet },
+		{ text = 'Use Character Profile', isNotRadio=true, checked = ProfileGet, func = ProfileSet },
 		{ text = 'Close Menu', notCheckable = 1, func = function() menuFrame:Hide() end },
 	}
 	function addon:ShowPopupMenu()
