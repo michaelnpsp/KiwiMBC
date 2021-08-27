@@ -67,7 +67,21 @@ local Ignore = {
 	MiniMapBattlefieldFrame = true,
 	GameTimeFrame = true,
 	FeedbackUIButton = true,
-	MiniMapTrackingFrame = true
+	MiniMapTrackingFrame = true,
+	QuestieFrameGroup = true,
+}
+
+-- buttons that cannot be boxed
+local nonBoxedButtons = {
+	LibDBIcon10_KiwiMBC = true,
+	MiniMapTracking = true,
+	GarrisonLandingPageMinimapButton = true,
+}
+
+-- button human description translations
+local buttonTranslations = {
+	MiniMapTracking = 'Tracking',
+	GarrisonLandingPageMinimapButton = 'Order Hall',
 }
 
 -- savedvariables
@@ -91,7 +105,10 @@ local dealyShow = .5
 local boxedButtons = {}
 local boxedVisible = false
 
+---------------------------------------------------------------------------------------------------------
 --- utils
+---------------------------------------------------------------------------------------------------------
+
 local function CopyTable(src, dst)
 	if type(dst)~="table" then dst = {} end
 	for k,v in pairs(src) do
@@ -133,16 +150,19 @@ local function SkinButtons()
 end
 
 local function GetButtonHumanName(buttonName)
-	if buttonName=='MiniMapTracking' then
-		return 'Tracking'
-	else
-		local name = string.match(buttonName,'^LibDBIcon10_(.+)$') or gsub(buttonName,'MinimapButton','')
+	local name = buttonTranslations[buttonName]
+	if not name then
+		name = string.match(buttonName,'^LibDBIcon10_(.+)$') or gsub(buttonName,'MinimapButton','')
 		name = gsub( name, '[_-]', ' ' )
-		return gsub( name, 'Broker', '' )
+		name = gsub( name, 'Broker', '' )
 	end
+	return name
 end
 
+---------------------------------------------------------------------------------------------------------
 -- boxed buttons management
+---------------------------------------------------------------------------------------------------------
+
 local function Boxed_BoxButton(button)
 	if button then
 		local data = {}
@@ -179,12 +199,21 @@ local function Boxed_UnboxButton(button)
 end
 
 local function Boxed_LayoutButtons()
-	local prevButton = kiwiButton
+	local count       = cfg.buttonsPerColumn or 50
+	local firstButton = cfg.boxed[1]
+	local prevButton  = kiwiButton
 	for i,name in ipairs(cfg.boxed) do
 		local button = boxedButtons[name]
 		if button then
 			button:ClearAllPoints()
-			button:SetPoint('TOP',prevButton,'BOTTOM',0,4)
+			if count>0 then
+				button:SetPoint('TOP',prevButton,'BOTTOM',0,4)
+				count = count - 1
+			else
+				button:SetPoint('RIGHT', firstButton, 'LEFT', 4, 0)
+				count = (cfg.buttonsPerColumn or 50) - 1
+				firstButton = button
+			end
 			prevButton = button
 		end
 	end
@@ -200,7 +229,10 @@ local function Boxed_ToggleVisibility()
 	end
 end
 
+---------------------------------------------------------------------------------------------------------
 --- minimap buttons visibility control
+---------------------------------------------------------------------------------------------------------
+
 local UpdateButtonsVisibility, UpdateButtonsVisibilityDelayed
 do
 	function UpdateButtonsVisibility()
@@ -225,7 +257,9 @@ do
 	end
 end
 
+---------------------------------------------------------------------------------------------------------
 -- event hooks
+---------------------------------------------------------------------------------------------------------
 local function MinimapOnEnter(f)
 	if not insideMinimap then
 		insideMinimap = true
@@ -252,7 +286,10 @@ local function MinimapDragStop(button)
 	end
 end
 
+---------------------------------------------------------------------------------------------------------
 -- collect buttons from minimap
+---------------------------------------------------------------------------------------------------------
+
 local CollectMinimapButtons
 do
 	local function AddMinimapButton(button, name)
@@ -275,7 +312,7 @@ do
 	local function CollectFrameButtons(frame)
 		for _, button in ipairs({frame:GetChildren()}) do
 			local name = button:GetName()
-			if not minimapButtons[name] and not boxedButtons[name] and button:HasScript('OnClick') and button:IsShown() then
+			if not minimapButtons[name] and not boxedButtons[name] and button:IsShown() and (button:HasScript('OnClick') or button:HasScript('OnMouseDown')) then
 				if IsValidButtonName(name) then
 					if cfg.boxed[name] then
 						Boxed_BoxButton(button)
@@ -299,7 +336,10 @@ local function UpdateMinimapButtons()
 	UpdateButtonsVisibility()
 end
 
+---------------------------------------------------------------------------------------------------------
 -- blizzard buttons visibility
+---------------------------------------------------------------------------------------------------------
+
 local UpdateBlizzardVisibility
 do
 	local function Hide( name, frame )
@@ -320,7 +360,9 @@ do
 	end
 end
 
+---------------------------------------------------------------------------------------------------------
 --- init
+---------------------------------------------------------------------------------------------------------
 addon:RegisterEvent("ADDON_LOADED")
 addon:RegisterEvent("PLAYER_LOGIN")
 addon:SetScript("OnEvent", function(frame, event, name)
@@ -346,7 +388,10 @@ addon:SetScript("OnEvent", function(frame, event, name)
 	end
 end)
 
+---------------------------------------------------------------------------------------------------------
 -- minimap&ldb button
+---------------------------------------------------------------------------------------------------------
+
 do
 	addon.minimapLDB = LibStub("LibDataBroker-1.1", true):NewDataObject("KiwiMBC", {
 		type  = "launcher",
@@ -368,7 +413,10 @@ do
 	addon.minimapLib = LibStub("LibDBIcon-1.0")
 end
 
---config
+---------------------------------------------------------------------------------------------------------
+-- command line
+---------------------------------------------------------------------------------------------------------
+
 SLASH_KIWIMBC1,SLASH_KIWIMBC2 = "/kmbc","/kiwimbc";
 SlashCmdList.KIWIMBC = function(args)
 	local arg1,arg2,arg3 = strsplit(" ",strlower(args),3)
@@ -400,7 +448,10 @@ SlashCmdList.KIWIMBC = function(args)
 	print( string.format('  buttons hide delay: %.1f tenths of a second', (cfg.delayHide or 0.5)*10 ) )
 end
 
+---------------------------------------------------------------------------------------------------------
 -- popup menu
+---------------------------------------------------------------------------------------------------------
+
 do
 	local menuFrame = CreateFrame("Frame", "KiwiMBCDPopupMenu", UIParent, "UIDropDownMenuTemplate")
 	local menuBoxed = {}
@@ -409,7 +460,7 @@ do
 	local function CreateRange(key, options)
 		local menu = {}
 		for _,value in ipairs(options.range) do
-			table.insert( menu, { arg1 = key, text = type(options.text)=='function' and options.text(value) or options.text, value = value, func = options.func, checked = options.checked } )
+			table.insert( menu, { arg1 = key, text = type(options.text)=='function' and options.text(value) or options.text or value, value = value, func = options.func, checked = options.checked } )
 		end
 		return menu
 	end
@@ -443,7 +494,6 @@ do
 	end
 	local DelayRange = { text = DelayText, checked = DelayGet, func = DelaySet, range = {0,1,2,3,4,5,6,7,8,9,10,15,20,25,30,35,40,45,50} }
 	-- boxed buttons
-	local nonBoxedButtons = { LibDBIcon10_KiwiMBC = true, MiniMapTracking = true }
 	local function BoxedGet(info)
 		return cfg.boxed[info.value]
 	end
@@ -463,6 +513,15 @@ do
 		cfg.alwaysVisible[info.value] = not cfg.alwaysVisible[info.value] or nil
 		UpdateButtonsVisibility()
 	end
+	-- buttons per column
+	local function ColGet(info)
+		return (cfg[info.arg1] or 50) == info.value
+	end
+	local function ColSet(info)
+		cfg[info.arg1] = info.value
+		Boxed_LayoutButtons()
+	end
+	local ColRange = { checked = ColGet, func = ColSet, range = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,20,30,40,50} }
 	-- several submenus
 	local function ButtonAddItem(buttonName)
 		local name = GetButtonHumanName(buttonName)
@@ -474,10 +533,8 @@ do
 	-- main menu
 	local menuTable = {
 		{ text = 'KiwiMBC',          notCheckable= true, isTitle = true },
-		{ text = 'Display Delay',    notCheckable= true, hasArrow = true, menuList = CreateRange('delayShow', DelayRange) },
+		{ text = 'Show Delay',       notCheckable= true, hasArrow = true, menuList = CreateRange('delayShow', DelayRange) },
 		{ text = 'Hide Delay',       notCheckable= true, hasArrow = true, menuList = CreateRange('delayHide', DelayRange) },
-		{ text = 'Always Visible',   notCheckable= true, hasArrow = true, menuList = menuAlways },
-		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
 		{ text = 'Blizzard Buttons', notCheckable= true, hasArrow = true, menuList = {
 			{ text='Zone',      value='zone',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
 			{ text='Clock',     value='clock',    isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
@@ -486,6 +543,9 @@ do
 			{ text='Toggle',    value='toggle',   isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
 			{ text='World Map', value='worldmap', isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
 		} },
+		{ text = 'Always Visible',   notCheckable= true, hasArrow = true, menuList = menuAlways },
+		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
+		{ text = 'Buttons per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
 		{ text = 'Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = DarkGet, func = DarkSet },
 	}
 	function addon:ShowPopupMenu()
