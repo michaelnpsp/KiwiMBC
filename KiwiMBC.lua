@@ -10,6 +10,10 @@ local strfind = strfind
 local GetTime = GetTime
 local C_Timer_After = C_Timer.After
 
+-- addon version
+local versionToc = GetAddOnMetadata("KiwiMBC","Version")
+versionToc = versionToc=='@project-version@' and 'Dev' or 'v'..versionToc
+
 --- savedvariables defaults
 local defaults = {
 	hide = { clock = false, zoom = false, time = false, zone = false, toggle = false, worldmap = false },
@@ -192,7 +196,7 @@ local function Boxed_BoxButton(button)
 		for i=1,button:GetNumPoints() do
 			data[i] = { button:GetPoint(i) }
 		end
-		button.__kbmcSavedPosition = data
+		button.__kmbcSavedPosition = data
 		local name = button:GetName()
 		boxedButtons[name]   = button
 		minimapButtons[name] = nil
@@ -208,10 +212,10 @@ end
 local function Boxed_UnboxButton(button)
 	if button then
 		button:ClearAllPoints()
-		for _,points in ipairs(button.__kbmcSavedPosition) do
+		for _,points in ipairs(button.__kmbcSavedPosition) do
 			button:SetPoint( unpack(points) )
 		end
-		button.__kbmcSavedPosition = nil
+		button.__kmbcSavedPosition = nil
 		local name = button:GetName()
 		boxedButtons[name] = nil
 		minimapButtons[name] = button
@@ -222,10 +226,10 @@ local function Boxed_UnboxButton(button)
 end
 
 local function Boxed_LayoutButtons()
-	local max         = (cfg.buttonsPerColumn or 50 ) -1
-	local count       = max
+	local max = (cfg.buttonsPerColumn or 50 ) -1
+	local count = max
 	local firstButton = kiwiButton
-	local prevButton  = kiwiButton
+	local prevButton = kiwiButton
 	for i,name in ipairs(cfg.boxed) do
 		local button = boxedButtons[name]
 		if button then
@@ -235,8 +239,7 @@ local function Boxed_LayoutButtons()
 				count = count - 1
 			else
 				button:SetPoint('RIGHT', firstButton, 'LEFT', 4, 0)
-				count = max
-				firstButton = button
+				count, firstButton = max, button
 			end
 			prevButton = button
 		end
@@ -265,7 +268,7 @@ do
 			local alwaysVisible = cfg.alwaysVisible
 			for buttonName, button in pairs(minimapButtons) do
 				if insideMinimap or not boxedVisible or button~=kiwiButton then
-					button:SetShown( (insideMinimap or alwaysVisible[buttonName]) and not button.__kiwiHide)
+					button:SetShown( (insideMinimap or alwaysVisible[buttonName]) and not button.__kmbcHide)
 				end
 			end
 		else
@@ -370,10 +373,7 @@ do
 		if frame then
 			local hidden = cfg.hide[name] or nil
 			frame:SetShown(not hidden)
-			frame.__kiwiHide = hidden
-			if hidden then
-				print(name, frame:GetName(), frame.__kiwiHide)
-			end
+			frame.__kmbcHide = hidden
 		end
 	end
 	local function HideZoneText()
@@ -435,7 +435,7 @@ do
 			end
 		end,
 		OnTooltipShow = function(tooltip)
-			tooltip:AddLine("KiwiMBC")
+			tooltip:AddDoubleLine("KiwiMBC ",versionToc)
 			tooltip:AddLine("Minimap Buttons Controller", 1, 1, 1)
 			tooltip:AddLine("|cFFff4040Left Click|r to display boxed buttons\n|cFFff4040Right Click|r to open menu", 0.2, 1, 0.2)
 		end,
@@ -581,9 +581,9 @@ do
 	end
 	-- main menu
 	local menuTable = {
-		{ text = 'KiwiMBC',          notCheckable= true, isTitle = true },
-		{ text = 'Show Delay',       notCheckable= true, hasArrow = true, menuList = CreateRange('delayShow', DelayRange) },
-		{ text = 'Hide Delay',       notCheckable= true, hasArrow = true, menuList = CreateRange('delayHide', DelayRange) },
+		{ text = 'KiwiMBC', notCheckable= true, isTitle = true },
+		{ text = 'Buttons Show Delay', notCheckable= true, hasArrow = true, menuList = CreateRange('delayShow', DelayRange) },
+		{ text = 'Buttons Hide Delay', notCheckable= true, hasArrow = true, menuList = CreateRange('delayHide', DelayRange) },
 		{ text = 'Blizzard Buttons', notCheckable= true, hasArrow = true, menuList = {
 			{ text='Zone',      value='zone',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
 			{ text='Clock',     value='clock',    isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
@@ -592,9 +592,9 @@ do
 			{ text='Toggle',    value='toggle',   isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
 			{ text='World Map', value='worldmap', isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
 		} },
-		{ text = 'Always Visible',   notCheckable= true, hasArrow = true, menuList = menuAlways },
+		{ text = 'Always Visible Buttons',   notCheckable= true, hasArrow = true, menuList = menuAlways },
 		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
-		{ text = 'Buttons per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
+		{ text = 'Buttons Per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
 		{ text = 'Draw Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = DarkGet, func = DarkSet },
 		{ text = 'Use Character Profile', isNotRadio=true, checked = ProfileGet, func = ProfileSet },
 		{ text = 'Close Menu', notCheckable = 1, func = function() menuFrame:Hide() end },
