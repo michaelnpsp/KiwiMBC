@@ -437,7 +437,7 @@ do
 		OnTooltipShow = function(tooltip)
 			tooltip:AddDoubleLine("KiwiMBC ",versionToc)
 			tooltip:AddLine("Minimap Buttons Controller", 1, 1, 1)
-			tooltip:AddLine("|cFFff4040Left Click|r to display boxed buttons\n|cFFff4040Right Click|r to open menu", 0.2, 1, 0.2)
+			tooltip:AddLine("|cFFff4040Left Click|r to display boxed buttons\n|cFFff4040Right Click|r to open config menu", 0.2, 1, 0.2)
 		end,
 	})
 	addon.minimapLib = LibStub("LibDBIcon-1.0")
@@ -584,6 +584,9 @@ do
 		{ text = 'KiwiMBC', notCheckable= true, isTitle = true },
 		{ text = 'Buttons Show Delay', notCheckable= true, hasArrow = true, menuList = CreateRange('delayShow', DelayRange) },
 		{ text = 'Buttons Hide Delay', notCheckable= true, hasArrow = true, menuList = CreateRange('delayHide', DelayRange) },
+		{ text = 'Buttons Per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
+		{ text = 'Always Visible Buttons',   notCheckable= true, hasArrow = true, menuList = menuAlways },
+		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
 		{ text = 'Blizzard Buttons', notCheckable= true, hasArrow = true, menuList = {
 			{ text='Zone',      value='zone',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
 			{ text='Clock',     value='clock',    isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
@@ -592,9 +595,6 @@ do
 			{ text='Toggle',    value='toggle',   isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
 			{ text='World Map', value='worldmap', isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
 		} },
-		{ text = 'Always Visible Buttons',   notCheckable= true, hasArrow = true, menuList = menuAlways },
-		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
-		{ text = 'Buttons Per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
 		{ text = 'Draw Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = DarkGet, func = DarkSet },
 		{ text = 'Use Character Profile', isNotRadio=true, checked = ProfileGet, func = ProfileSet },
 		{ text = 'Close Menu', notCheckable = 1, func = function() menuFrame:Hide() end },
