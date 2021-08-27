@@ -3,7 +3,7 @@
 ## Interface-Classic: 11306
 ## Interface-BCC: 20501
 ## Title: |cFF7FFF72Kiwi|r MBC
-## Notes: Manage minimap buttons stuff
+## Notes: Manage minimap buttons
 ## Author: MiChaEl
 ## Version: @project-version@
 ## SavedVariables: KiwiMBCDB

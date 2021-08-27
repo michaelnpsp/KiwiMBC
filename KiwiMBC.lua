@@ -407,7 +407,7 @@ do
 		end,
 		OnTooltipShow = function(tooltip)
 			tooltip:AddLine("KiwiMBC")
-			tooltip:AddLine("Minimap Button Controller", 1, 1, 1)
+			tooltip:AddLine("Minimap Buttons Controller", 1, 1, 1)
 			tooltip:AddLine("|cFFff4040Left Click|r to display boxed buttons\n|cFFff4040Right Click|r to open menu", 0.2, 1, 0.2)
 		end,
 	})
@@ -534,6 +534,10 @@ do
 	-- main menu
 	local menuTable = {
 		{ text = 'KiwiMBC',          notCheckable= true, isTitle = true },
+		{ text = 'Borders', notCheckable= true, hasArrow = true, menuList = {
+			{ text='Light', value='zone', isNotRadio=true, checked= function() return not cfg.blackBorders end, func=function() cfg.blackBorders = nil;  SkinButtons(); end },
+			{ text='Dark',  value='zone', isNotRadio=true, checked= function() return     cfg.blackBorders end, func=function() cfg.blackBorders = true; SkinButtons(); end },
+		} },
 		{ text = 'Show Delay',       notCheckable= true, hasArrow = true, menuList = CreateRange('delayShow', DelayRange) },
 		{ text = 'Hide Delay',       notCheckable= true, hasArrow = true, menuList = CreateRange('delayHide', DelayRange) },
 		{ text = 'Blizzard Buttons', notCheckable= true, hasArrow = true, menuList = {
@@ -547,7 +551,7 @@ do
 		{ text = 'Always Visible',   notCheckable= true, hasArrow = true, menuList = menuAlways },
 		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
 		{ text = 'Buttons per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
-		{ text = 'Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = DarkGet, func = DarkSet },
+		{ text = 'Close Menu', notCheckable = 1, func = function() menuFrame:Hide() end },
 	}
 	function addon:ShowPopupMenu()
 		addon.ShowPopupMenu = function()
