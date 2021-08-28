@@ -4,6 +4,7 @@ local addon = CreateFrame('Frame')
 addon.addonName = ...
 
 --- upvalues
+local pairs = pairs
 local ipairs = ipairs
 local unpack = unpack
 local strfind = strfind
@@ -15,15 +16,21 @@ local versionToc = GetAddOnMetadata("KiwiMBC","Version")
 versionToc = versionToc=='@project-version@' and 'Dev' or 'v'..versionToc
 
 --- savedvariables defaults
-local defaults = {
-	hide = { clock = false, zoom = false, time = false, zone = false, toggle = false, worldmap = false },
-	boxed = {},         -- boxed buttons
-	alwaysVisible = {}, -- always visible buttons
-	minimapIcon = {},
+local defaults = { -- default settings
+	hide         = { clock = false, zoom = false, time = false, zone = false, toggle = false, worldmap = false },
+	bxButtons    = {}, -- boxed buttons
+	avButtons    = {}, -- always visible buttons
+	minimapIcon  = {}, -- used by LibDBIcon-1.0
+}
+
+local gdefaults = { -- global defaults (data shared by all characters)
+	maButtons = {}, -- manual collected buttons
+	baButtons = {}, -- banned buttons, never collect
 }
 
 --- frames to ignore in minimap button collection
 local Ignore = {
+	"Questie", -- needed to ignore trillions of questie icons (QuestieFrameNNN)
 	ActionBar = true,
 	BonusActionButton = true,
 	MainMenu = true,
@@ -73,18 +80,21 @@ local Ignore = {
 	QuestieFrameGroup = true,
 }
 
+-- valid button frames
 local Valid = {
 	MinimapZoomIn = true,
 	MinimapZoomOut = true,
+	LibDBIcon10_Questie = true,
 }
 
 -- buttons that cannot be boxed
 local nonBoxedButtons = {
 	LibDBIcon10_KiwiMBC = true,
 	MiniMapTracking = true,
-	GarrisonLandingPageMinimapButton = true,
+	MiniMapTrackingButton =  true,
 	MinimapZoomIn = true,
 	MinimapZoomOut = true,
+	GarrisonLandingPageMinimapButton = true,
 }
 
 -- button human description translations
@@ -94,13 +104,14 @@ local buttonTranslations = {
 }
 
 -- savedvariables
-local cfg
+local cfg, cfg_global
 
 -- KiwiMBC minimap button
 local kiwiButton
 
--- all minimap button names sorted
-local sortedButtons = {}
+-- all collected buttons
+local collectedButtons = {}
+local collectTime = 0
 
 -- standard minimap buttons
 local minimapButtons = {}
@@ -142,10 +153,10 @@ local function RemoveTableValue(t,v)
 	end
 end
 
-local function SkinButton(button)
+local function SkinButton(button, reset)
 	for _,tex in ipairs({button:GetRegions()}) do
 		if tex:IsObjectType('Texture') and tex:GetDrawLayer()=='OVERLAY' then
-			local rgb = cfg.blackBorders and 0.15 or 1
+			local rgb = (cfg.blackBorders and not reset) and 0.15 or 1
 			tex:SetVertexColor(rgb,rgb,rgb,1)
 			return
 		end
@@ -153,10 +164,7 @@ local function SkinButton(button)
 end
 
 local function SkinButtons()
-	for _, button in pairs(minimapButtons) do
-		SkinButton(button)
-	end
-	for _, button in pairs(boxedButtons) do
+	for _, button in pairs(collectedButtons) do
 		SkinButton(button)
 	end
 end
@@ -180,10 +188,40 @@ local function ConfirmDialog(message, funcAccept, funcCancel)
 	StaticPopup_Show ("KIWIBMC_DIALOG")
 end
 
+local function PrintNameList(list, title)
+	if next(list) then
+		print(title)
+		local t = {}
+		for name in pairs(list) do
+			table.insert(t, name)
+		end
+		print( table.concat(t,', ') )
+		print( "\n")
+	end
+end
 
-local function CreateDatabase()
-	KiwiMBCDB = {}
-	return KiwiMBCDB
+local function ValidateButtonName(buttonName)
+	buttonName = strtrim(buttonName or '','"')
+	if strlen(buttonName)>3 then
+		local button = _G['LibDBIcon10_'..buttonName] or _G[buttonName]
+		if button and type(button)=='table' and button.SetFrameLevel then
+			return button:GetName()
+		end
+	end
+	print( string.format( 'KiwiMBC Error: Minimap button "%s" not found !', buttonName) )
+end
+
+local function SetupDatabase()
+	-- current db setup
+	KiwiMBCDB = CopyTable(defaults,KiwiMBCDB)
+	if KiwiMBCDBC then -- using character database
+		cfg = CopyTable(defaults, KiwiMBCDBC)
+	else -- using global database
+		cfg = KiwiMBCDB
+	end
+	-- global db setup
+	KiwiMBCDB.global = CopyTable(gdefaults,KiwiMBCDB.global)
+	cfg_global = KiwiMBCDB.global
 end
 
 ---------------------------------------------------------------------------------------------------------
@@ -200,7 +238,7 @@ local function Boxed_BoxButton(button)
 		local name = button:GetName()
 		boxedButtons[name]   = button
 		minimapButtons[name] = nil
-		local boxed = cfg.boxed
+		local boxed = cfg.bxButtons
 		if not boxed[name] then
 			boxed[name] = true
 			table.insert( boxed, name )
@@ -219,7 +257,7 @@ local function Boxed_UnboxButton(button)
 		local name = button:GetName()
 		boxedButtons[name] = nil
 		minimapButtons[name] = button
-		local boxed = cfg.boxed
+		local boxed = cfg.bxButtons
 		boxed[name] = nil
 		RemoveTableValue( boxed, name )
 		boxedVisible = next(boxedButtons) and boxedVisible
@@ -231,7 +269,7 @@ local function Boxed_LayoutButtons()
 	local count = max
 	local firstButton = kiwiButton
 	local prevButton = kiwiButton
-	for i,name in ipairs(cfg.boxed) do
+	for i,name in ipairs(cfg.bxButtons) do
 		local button = boxedButtons[name]
 		if button then
 			button:ClearAllPoints()
@@ -249,7 +287,7 @@ end
 
 local function Boxed_ToggleVisibility()
 	boxedVisible = next(boxedButtons) and not boxedVisible
-	for _,name in ipairs(cfg.boxed) do
+	for _,name in ipairs(cfg.bxButtons) do
 		local button = boxedButtons[name]
 		if button then
 			button:SetShown(boxedVisible)
@@ -266,7 +304,7 @@ do
 	function UpdateButtonsVisibility()
 		timerActive = false
 		if not dragStart and not IsMouseButtonDown() then
-			local alwaysVisible = cfg.alwaysVisible
+			local alwaysVisible = cfg.avButtons
 			for buttonName, button in pairs(minimapButtons) do
 				if insideMinimap or not boxedVisible or button~=kiwiButton then
 					button:SetShown( (insideMinimap or alwaysVisible[buttonName]) and not button.__kmbcHide)
@@ -318,19 +356,56 @@ end
 -- collect buttons from minimap
 ---------------------------------------------------------------------------------------------------------
 
+local function CollectMinimapButton(name, button)
+	button = button or _G[name]
+	if button then
+		collectedButtons[name] = button
+		if not button.__kmbcHooked then
+			button:HookScript('OnEnter', MinimapOnEnter)
+			button:HookScript('OnLeave', MinimapOnLeave)
+			button:HookScript("OnDragStart", MinimapDragStart)
+			button:HookScript("OnDragStop", MinimapDragStop)
+			button.__kmbcHooked = true
+		end
+		SkinButton(button)
+		if cfg.bxButtons[name] then
+			Boxed_BoxButton(button)
+		else
+			minimapButtons[name] = button
+		end
+		collectTime = GetTime()
+		return true
+	end
+end
+
+local function UncollectMinimapButton(name)
+	local button = collectedButtons[name]
+	if button then
+		if boxedButtons[name] then
+			Boxed_UnboxButton(button)
+		else
+			minimapButtons[name] = nil
+		end
+		SkinButton(button, true)
+		collectedButtons[name] = nil
+		collectTime = GetTime()
+		button:Show()
+		return true
+	end
+end
+
 local CollectMinimapButtons
 do
-	local function AddMinimapButton(button, name)
-		minimapButtons[name] = button
-		button:HookScript('OnEnter', MinimapOnEnter)
-		button:HookScript('OnLeave', MinimapOnLeave)
-		button:HookScript("OnDragStart", MinimapDragStart)
-		button:HookScript("OnDragStop", MinimapDragStop)
-	end
-	local function IsValidButtonName(name)
-		if name and name~='' and not Ignore[name] then
+	local function IsValidButton(name, button)
+		if Ignore[name] or cfg_global.baButtons[name] then -- blacklisted buttons
+			return false
+		end
+		if Valid[name] or cfg_global.maButtons[name] then  -- whitelisted buttons
+			return true
+		end
+		if button:IsShown() and (button:HasScript('OnClick') or button:HasScript('OnMouseDown')) then -- looks like a frame button ?
 			for _,pattern in ipairs(Ignore) do
-				if strfind(name, pattern) then
+				if strfind(name, pattern) then -- patterns to ignore (example: Questie creates a lot of icons/buttons parented to the minimap)
 					return false
 				end
 			end
@@ -340,29 +415,24 @@ do
 	local function CollectFrameButtons(frame)
 		for _, button in ipairs({frame:GetChildren()}) do
 			local name = button:GetName()
-			if not minimapButtons[name] and not boxedButtons[name] and (Valid[name] or (button:IsShown() and (button:HasScript('OnClick') or button:HasScript('OnMouseDown')))) then
-				if IsValidButtonName(name) then
-					if cfg.boxed[name] then
-						Boxed_BoxButton(button)
-					else
-						AddMinimapButton(button, name)
-					end
-					table.insert(sortedButtons, name)
-					SkinButton(button)
-				end
+			if name and	not collectedButtons[name] and IsValidButton(name, button) then
+				CollectMinimapButton(name, button)
 			end
+		end
+	end
+	local function CollectManualButtons(buttons)
+		for name in pairs(buttons) do
+			CollectMinimapButton(name)
 		end
 	end
 	function CollectMinimapButtons()
 		CollectFrameButtons(Minimap)
 		CollectFrameButtons(MinimapBackdrop)
+		CollectManualButtons(cfg_global.maButtons)
+		UpdateButtonsVisibility()
 	end
 end
 
-local function UpdateMinimapButtons()
-	CollectMinimapButtons()
-	UpdateButtonsVisibility()
-end
 
 ---------------------------------------------------------------------------------------------------------
 -- blizzard buttons visibility
@@ -395,6 +465,7 @@ end
 ---------------------------------------------------------------------------------------------------------
 --- init
 ---------------------------------------------------------------------------------------------------------
+
 addon:RegisterEvent("ADDON_LOADED")
 addon:RegisterEvent("PLAYER_LOGIN")
 addon:SetScript("OnEvent", function(frame, event, name)
@@ -402,7 +473,7 @@ addon:SetScript("OnEvent", function(frame, event, name)
 		addon.__loaded = true
 	end
 	if addon.__loaded and IsLoggedIn() then
-		cfg = CopyTable(defaults, KiwiMBCDBC or KiwiMBCDB or CreateDatabase())
+		SetupDatabase()
 		addon:UnregisterAllEvents()
 		addon.minimapLib:Register("KiwiMBC", addon.minimapLDB, cfg.minimapIcon)
 		kiwiButton = addon.minimapLib:GetMinimapButton('KiwiMBC')
@@ -411,9 +482,9 @@ addon:SetScript("OnEvent", function(frame, event, name)
 		delayHide = cfg.delayHide or 0.5
 		delayShow = cfg.delayShow or 0.5
 		UpdateBlizzardVisibility()
-		C_Timer_After( .05, UpdateMinimapButtons )
+		C_Timer_After( .05, CollectMinimapButtons )
 		C_Timer_After( 3, function()
-			UpdateMinimapButtons()
+			CollectMinimapButtons()
 			Boxed_LayoutButtons()
 		end)
 	end
@@ -423,43 +494,132 @@ end)
 -- minimap&ldb button
 ---------------------------------------------------------------------------------------------------------
 
-do
-	addon.minimapLDB = LibStub("LibDataBroker-1.1", true):NewDataObject("KiwiMBC", {
-		type  = "launcher",
-		label = GetAddOnInfo("KiwiMBC", "Title"),
-		icon = "Interface\\Addons\\KiwiMBC\\icon",
-		OnClick = function(self, button)
-			if button=="LeftButton" then
-				Boxed_ToggleVisibility()
-			elseif button=="RightButton" then
-				addon:ShowPopupMenu()
-			end
-		end,
-		OnTooltipShow = function(tooltip)
-			tooltip:AddDoubleLine("KiwiMBC ",versionToc)
-			tooltip:AddLine("Minimap Buttons Controller", 1, 1, 1)
-			tooltip:AddLine("|cFFff4040Left Click|r to display boxed buttons\n|cFFff4040Right Click|r to open config menu", 0.2, 1, 0.2)
-		end,
-	})
-	addon.minimapLib = LibStub("LibDBIcon-1.0")
+addon.minimapLib = LibStub("LibDBIcon-1.0")
+addon.minimapLDB = LibStub("LibDataBroker-1.1", true):NewDataObject("KiwiMBC", {
+	type  = "launcher",
+	label = GetAddOnInfo("KiwiMBC", "Title"),
+	icon = "Interface\\Addons\\KiwiMBC\\icon",
+	OnClick = function(self, button)
+		if button=="LeftButton" then
+			Boxed_ToggleVisibility()
+		elseif button=="RightButton" then
+			addon:ShowPopupMenu()
+		end
+	end,
+	OnTooltipShow = function(tooltip)
+		tooltip:AddDoubleLine("KiwiMBC ",versionToc)
+		tooltip:AddLine("Minimap Buttons Controller", 1, 1, 1)
+		tooltip:AddLine("|cFFff4040Left Click|r to display boxed buttons\n|cFFff4040Right Click|r to open config menu", 0.2, 1, 0.2)
+	end,
+})
+
+---------------------------------------------------------------------------------------------------------
+-- database configuration
+---------------------------------------------------------------------------------------------------------
+
+local function Cfg_CollectToggle(buttonName)
+	buttonName = type(buttonName)=='table' and buttonName.value or buttonName
+	local name = ValidateButtonName(buttonName)
+	if name then
+		if cfg_global.maButtons[name] then
+			cfg_global.maButtons[name] = nil
+			UncollectMinimapButton(name)
+		else
+			cfg_global.maButtons[name] = true
+			CollectMinimapButton(name)
+		end
+	end
+end
+
+local function Cfg_IgnoreToggle(buttonName)
+	buttonName = type(buttonName)=='table' and buttonName.value or buttonName
+	local name = buttonName or ''
+	local nameAlt = 'LibDBIcon10_'..name
+	if cfg_global.baButtons[name] or cfg_global.baButtons[nameAlt] then
+		cfg_global.baButtons[name] = nil
+		cfg_global.baButtons[nameAlt] = nil
+		CollectMinimapButtons()
+	else
+		name = ValidateButtonName(name)
+		if name then
+			cfg_global.baButtons[name] = true
+			UncollectMinimapButton(name)
+		end
+	end
+end
+
+local function Cfg_BlizToggle(zone)
+	zone = type(zone)=='table' and zone.value or zone
+	if zone and defaults.hide[zone]~=nil then
+		cfg.hide[zone] = not cfg.hide[zone]
+		UpdateBlizzardVisibility()
+		UpdateButtonsVisibility()
+	end
+end
+
+local function Cfg_BoxedToggle(buttonName)
+	buttonName = type(buttonName)=='table' and buttonName.value or buttonName
+	if cfg.bxButtons[buttonName] then
+		Boxed_UnboxButton( boxedButtons[buttonName] )
+	else
+		Boxed_BoxButton( minimapButtons[buttonName] )
+	end
+	 Boxed_LayoutButtons()
+end
+
+local function Cfg_AlwaysToggle(buttonName)
+	buttonName = type(buttonName)=='table' and buttonName.value or buttonName
+	cfg.avButtons[buttonName] = not cfg.avButtons[buttonName] or nil
+	UpdateButtonsVisibility()
+end
+
+local function Cfg_ProfileToggle()
+	if KiwiMBCDBC then -- switch to global database
+		ConfirmDialog('Current character settings will be removed and the UI will be reloaded. Are you sure you want to use the global profile ?', function()
+			KiwiMBCDBC = nil
+			ReloadUI()
+		end)
+	else -- switch to character database
+		ConfirmDialog('Are you sure you want to use a specific character profile ?', function()
+			KiwiMBCDBC = CopyTable(KiwiMBCDB)
+			ReloadUI()
+		end)
+	end
+end
+
+local function Cfg_DarkToggle()
+	cfg.blackBorders = not cfg.blackBorders
+	SkinButtons()
+end
+
+local function Cfg_DelaySet(key, value)
+	value = tonumber(value)
+	cfg[key] = value and value/10 or cfg[key]
+	delayHide, delayShow = cfg.delayHide, cfg.delayShow
+end
+
+local function Cfg_ButtonsPerColumnSet(value)
+	cfg.buttonsPerColumn = type(value) == 'table' and value.value or value
+	Boxed_LayoutButtons()
 end
 
 ---------------------------------------------------------------------------------------------------------
 -- command line
 ---------------------------------------------------------------------------------------------------------
 
-SLASH_KIWIMBC1,SLASH_KIWIMBC2 = "/kmbc","/kiwimbc";
+SLASH_KIWIMBC1, SLASH_KIWIMBC2 = "/kmbc", "/kiwimbc";
 SlashCmdList.KIWIMBC = function(args)
-	local arg1,arg2,arg3 = strsplit(" ",strlower(args),3)
-	if arg1 =='delay' and tonumber(arg2) then
-		cfg.delayHide = tonumber(arg2)/10
-		cfg.delayShow = tonumber(arg3) and tonumber(arg3)/10 or cfg.delayHide
-		delayHide = cfg.delayHide
-		delayShow = cfg.delayShow
-	elseif defaults.hide[arg1] ~= nil then
-		cfg.hide[arg1] = not cfg.hide[arg1]
-		UpdateBlizzardVisibility()
-		UpdateButtonsVisibility()
+	local arg1, arg2, arg3 = strsplit(" ",args,3)
+	arg1 = strlower(arg1 or '')
+	if arg1 =='delay' then
+		Cfg_DelaySet('delayHide', arg2)
+		Cfg_DelaySet('delayShow', arg3)
+	elseif arg1 == 'collect' then
+		Cfg_CollectToggle(arg2)
+	elseif arg1 == 'ignore' then
+		Cfg_IgnoreToggle(arg2)
+	elseif arg1~='' then
+		Cfg_BlizToggle(arg1)
 	else
 		print("KiwiMBC (Minimap Buttons Control) commands:")
 		print("  /kiwimbc")
@@ -471,13 +631,13 @@ SlashCmdList.KIWIMBC = function(args)
 		print("  /kmbc toggle   -minimap toggle button visibility")
 		print("  /kmbc worldmap -worldmap button visibility")
 		print("  /kmbc delay [1-50] [1-50] - [hide] [show] delay in tenths of a second")
+		print("  /kmbc collect button_name  - toggle button_name collect status")
+		print("  /kmbc ignore button_name  - toggle button_name ignore status")
+		print("\n")
 	end
-	print("KiwiMBC setup:")
-	for name in pairs(defaults.hide) do
-		print( string.format("  %s visible: %s",name, tostring(not cfg.hide[name])) )
-	end
-	print( string.format('  buttons show delay: %.1f tenths of a second', (cfg.delayShow or 0.5)*10 ) )
-	print( string.format('  buttons hide delay: %.1f tenths of a second', (cfg.delayHide or 0.5)*10 ) )
+	PrintNameList(collectedButtons,     "Collected minimap buttons:")
+	PrintNameList(cfg_global.maButtons, "Manual collected minimap buttons:")
+	PrintNameList(cfg_global.baButtons, "Ignored minimap buttons:")
 end
 
 ---------------------------------------------------------------------------------------------------------
@@ -500,36 +660,19 @@ do
 	local function BlizGet(info)
 		return not cfg.hide[info.value]
 	end
-	local function BlizSet(info)
-		cfg.hide[info.value] = not cfg.hide[info.value]
-		UpdateBlizzardVisibility()
-		UpdateButtonsVisibility()
+	-- boxed buttons
+	local function BoxedGet(info)
+		return cfg.bxButtons[info.value]
 	end
-	-- black borders
-	local function DarkGet(info)
-		return cfg.blackBorders
+	-- always visible buttons
+	local function AlwaysGet(info)
+		return cfg.avButtons[info.value]
 	end
-	local function DarkSet(info)
-		cfg.blackBorders = not cfg.blackBorders
-		SkinButtons()
+	-- buttons per column
+	local function ColGet(info)
+		return (cfg.buttonsPerColumn or 50) == info.value
 	end
-	-- profile per character or global
-	local function ProfileGet(info)
-		return KiwiMBCDBC~=nil
-	end
-	local function ProfileSet(info)
-		if KiwiMBCDBC then -- switch to global database
-			ConfirmDialog('Current character settings will be removed and the UI will be reloaded. Are you sure you want to use the global profile ?', function()
-				KiwiMBCDBC = nil
-				ReloadUI()
-			end)
-		else -- switch to character database
-			ConfirmDialog('Are you sure you want to use a specific character profile ?', function()
-				KiwiMBCDBC = CopyTable(KiwiMBCDB)
-				ReloadUI()
-			end)
-		end
-	end
+	local ColRange = { checked = ColGet, func = Cfg_ButtonsPerColumnSet, range = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,20,30,40,50} }
 	-- delay menus
 	local function DelayText(value)
 		return string.format( "%.1f sec", value / 10 )
@@ -538,46 +681,27 @@ do
 		return math.floor( (cfg[info.arg1] or 0.5) * 10 ) == info.value
 	end
 	local function DelaySet(info)
-		cfg[info.arg1] = info.value / 10
-		delayHide = cfg.delayHide or 0.5
-		delayShow = cfg.delayShow or 0.5
+		Cfg_DelaySet( info.arg1, info.value )
 	end
 	local DelayRange = { text = DelayText, checked = DelayGet, func = DelaySet, range = {0,1,2,3,4,5,6,7,8,9,10,15,20,25,30,35,40,45,50} }
-	-- boxed buttons
-	local function BoxedGet(info)
-		return cfg.boxed[info.value]
-	end
-	local function BoxedSet(info)
-		if cfg.boxed[info.value] then
-			Boxed_UnboxButton( boxedButtons[info.value] )
-		else
-			Boxed_BoxButton( minimapButtons[info.value] )
-		end
-		 Boxed_LayoutButtons()
-	end
-	-- always visible buttons
-	local function AlwaysGet(info)
-		return cfg.alwaysVisible[info.value]
-	end
-	local function AlwaysSet(info)
-		cfg.alwaysVisible[info.value] = not cfg.alwaysVisible[info.value] or nil
-		UpdateButtonsVisibility()
-	end
-	-- buttons per column
-	local function ColGet(info)
-		return (cfg[info.arg1] or 50) == info.value
-	end
-	local function ColSet(info)
-		cfg[info.arg1] = info.value
-		Boxed_LayoutButtons()
-	end
-	local ColRange = { checked = ColGet, func = ColSet, range = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,20,30,40,50} }
-	-- several submenus
-	local function ButtonAddItem(buttonName)
-		local name = GetButtonHumanName(buttonName)
-		table.insert(menuAlways, {text=name, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=AlwaysGet, func=AlwaysSet} )
-		if not nonBoxedButtons[buttonName] then
-			table.insert(menuBoxed, {text=name, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=BoxedGet, func=BoxedSet} )
+	-- submenus
+	local updateTime = -1
+	local function UpdateSubMenus()
+		if collectTime>updateTime then
+			local sortedButtons = {}
+			for name in pairs(collectedButtons) do
+				table.insert(sortedButtons, name)
+			end
+			table.sort(sortedButtons)
+			wipe(menuAlways); wipe(menuBoxed)
+ 			for _,buttonName in ipairs(sortedButtons) do
+				local name = GetButtonHumanName(buttonName)
+				table.insert(menuAlways, {text=name, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=AlwaysGet, func=Cfg_AlwaysToggle} )
+				if not nonBoxedButtons[buttonName] then
+					table.insert(menuBoxed, {text=name, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=BoxedGet, func=Cfg_BoxedToggle} )
+				end
+			end
+			updateTime = collectTime+0.01
 		end
 	end
 	-- main menu
@@ -589,28 +713,22 @@ do
 		{ text = 'Always Visible Buttons',   notCheckable= true, hasArrow = true, menuList = menuAlways },
 		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
 		{ text = 'Blizzard Buttons', notCheckable= true, hasArrow = true, menuList = {
-			{ text='Zone',      value='zone',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
-			{ text='Clock',     value='clock',    isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
-			{ text='Zoom',      value='zoom',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
-			{ text='Time',      value='time',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
-			{ text='Toggle',    value='toggle',   isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
-			{ text='World Map', value='worldmap', isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=BlizSet },
+			{ text='Zone',      value='zone',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
+			{ text='Clock',     value='clock',    isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
+			{ text='Zoom',      value='zoom',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
+			{ text='Time',      value='time',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
+			{ text='Toggle',    value='toggle',   isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
+			{ text='World Map', value='worldmap', isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
 		} },
-		{ text = 'Draw Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = DarkGet, func = DarkSet },
-		{ text = 'Use Character Profile', isNotRadio=true, checked = ProfileGet, func = ProfileSet },
+		{ text = 'Draw Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.blackBorders end, func = Cfg_DarkToggle },
+		{ text = 'Use Character Profile', isNotRadio=true, checked = function() return KiwiMBCDBC~=nil end, func = Cfg_ProfileToggle },
 		{ text = 'Close Menu', notCheckable = 1, func = function() menuFrame:Hide() end },
 	}
 	function addon:ShowPopupMenu()
-		addon.ShowPopupMenu = function()
-			local x, y = GetCursorPosition()
-			local uiScale = UIParent:GetEffectiveScale()
-			UIDropDownMenu_SetAnchor(menuFrame, x/uiScale, y/uiScale, 'TOPRIGHT', UIParent, 'BOTTOMLEFT')
-			EasyMenu(menuTable, menuFrame, nil, 0 , 0, 'MENU', 1)
-		end
-		table.sort(sortedButtons)
-		for _,buttonName in ipairs(sortedButtons) do
-			ButtonAddItem(buttonName)
-		end
-		addon:ShowPopupMenu()
+		UpdateSubMenus()
+		local x, y = GetCursorPosition()
+		local uiScale = UIParent:GetEffectiveScale()
+		UIDropDownMenu_SetAnchor(menuFrame, x/uiScale, y/uiScale, 'TOPRIGHT', UIParent, 'BOTTOMLEFT')
+		EasyMenu(menuTable, menuFrame, nil, 0 , 0, 'MENU', 1)
 	end
 end
