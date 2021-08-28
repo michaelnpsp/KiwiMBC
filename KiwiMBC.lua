@@ -603,7 +603,7 @@ do
 		addon.ShowPopupMenu = function()
 			local x, y = GetCursorPosition()
 			local uiScale = UIParent:GetEffectiveScale()
-			UIDropDownMenu_SetAnchor(menuFrame, x/uiScale,y/uiScale, 'TOPRIGHT', UIParent, 'BOTTOMLEFT')
+			UIDropDownMenu_SetAnchor(menuFrame, x/uiScale, y/uiScale, 'TOPRIGHT', UIParent, 'BOTTOMLEFT')
 			EasyMenu(menuTable, menuFrame, nil, 0 , 0, 'MENU', 1)
 		end
 		table.sort(sortedButtons)
