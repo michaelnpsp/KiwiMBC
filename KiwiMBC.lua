@@ -222,6 +222,7 @@ local function Boxed_UnboxButton(button)
 		local boxed = cfg.boxed
 		boxed[name] = nil
 		RemoveTableValue( boxed, name )
+		boxedVisible = next(boxedButtons) and boxedVisible
 	end
 end
 
@@ -247,7 +248,7 @@ local function Boxed_LayoutButtons()
 end
 
 local function Boxed_ToggleVisibility()
-	boxedVisible = not boxedVisible
+	boxedVisible = next(boxedButtons) and not boxedVisible
 	for _,name in ipairs(cfg.boxed) do
 		local button = boxedButtons[name]
 		if button then
