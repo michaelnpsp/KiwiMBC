@@ -31,6 +31,7 @@ local gdefaults = { -- global defaults (data shared by all characters)
 --- frames to ignore in minimap button collection
 local Ignore = {
 	"Questie", -- needed to ignore trillions of questie icons (QuestieFrameNNN)
+	"LibDBIcon10_KiwiMBCBoxFiller",
 	ActionBar = true,
 	BonusActionButton = true,
 	MainMenu = true,
@@ -128,6 +129,28 @@ local boxedVisible = false
 -- accept/cancel dialog
 StaticPopupDialogs["KIWIBMC_DIALOG"] = { timeout = 0, whileDead = 1, hideOnEscape = 1, button1 = ACCEPT, button2 = CANCEL }
 
+-- box filler buttons
+local fillButtons = setmetatable( {}, {
+	__index = function(t,i)
+		local button = CreateFrame("Button", "LibDBIcon10_KiwiMBCBoxFiller"..i, Minimap)
+		button:SetFrameStrata("MEDIUM")
+		button:SetSize(31, 31)
+		local overlay = button:CreateTexture(nil, "OVERLAY")
+		overlay:SetSize(53, 53)
+		overlay:SetTexture(136430) --"Interface\\Minimap\\MiniMap-TrackingBorder"
+		overlay:SetPoint("TOPLEFT")
+		local c = cfg.blackBorders and 0.15 or 1
+		overlay:SetVertexColor(c,c,c,1)
+		local background = button:CreateTexture(nil, "BACKGROUND")
+		background:SetSize(20, 20)
+		background:SetTexture(136467) --"Interface\\Minimap\\UI-Minimap-Background"
+		background:SetVertexColor(1,1,1,0.55)
+		background:SetPoint("TOPLEFT", 7, -5)
+		t[i] = button
+		return button
+	end }
+)
+
 ---------------------------------------------------------------------------------------------------------
 --- utils
 ---------------------------------------------------------------------------------------------------------
@@ -167,6 +190,10 @@ local function SkinButtons()
 	for _, button in pairs(collectedButtons) do
 		SkinButton(button)
 	end
+	for _, button in ipairs(fillButtons) do
+		SkinButton(button)
+	end
+
 end
 
 local function GetButtonHumanName(buttonName)
@@ -209,6 +236,29 @@ local function ValidateButtonName(buttonName)
 		end
 	end
 	print( string.format( 'KiwiMBC Error: Minimap button "%s" not found !', buttonName) )
+end
+
+local function IterateBoxedButtons()
+	local f, i, c, name = true, 0, 0
+	return function (k, v)
+		if f then
+			repeat
+				i = i + 1; name = cfg.bxButtons[i]
+				if name then
+					button = boxedButtons[name]
+					if button then c = c + 1; return button; end
+				end
+			until name==nil
+			local bpc = cfg.buttonsPerColumn or 50
+			f, i, c = false, 0, math.ceil( c / bpc) * bpc - c - 1
+		end
+		if i<c then
+			i = i + 1
+			local button = fillButtons[i]
+			button:SetShown(boxedVisible)
+			return button
+		end
+	end
 end
 
 local function SetupDatabase()
@@ -269,29 +319,26 @@ local function Boxed_LayoutButtons()
 	local count = max
 	local firstButton = kiwiButton
 	local prevButton = kiwiButton
-	for i,name in ipairs(cfg.bxButtons) do
-		local button = boxedButtons[name]
-		if button then
-			button:ClearAllPoints()
-			if count>0 then
-				button:SetPoint('TOP',prevButton,'BOTTOM',0,4)
-				count = count - 1
-			else
-				button:SetPoint('RIGHT', firstButton, 'LEFT', 4, 0)
-				count, firstButton = max, button
-			end
-			prevButton = button
+	for _,button in ipairs(fillButtons) do
+		button:Hide()
+	end
+	for button in IterateBoxedButtons() do
+		button:ClearAllPoints()
+		if count>0 then
+			button:SetPoint('TOP',prevButton,'BOTTOM',0,4)
+			count = count - 1
+		else
+			button:SetPoint('RIGHT', firstButton, 'LEFT', 4, 0)
+			count, firstButton = max, button
 		end
+		prevButton = button
 	end
 end
 
 local function Boxed_ToggleVisibility()
 	boxedVisible = next(boxedButtons) and not boxedVisible
-	for _,name in ipairs(cfg.bxButtons) do
-		local button = boxedButtons[name]
-		if button then
-			button:SetShown(boxedVisible)
-		end
+	for button in IterateBoxedButtons() do
+		button:SetShown(boxedVisible)
 	end
 end
 
@@ -707,11 +754,9 @@ do
 	-- main menu
 	local menuTable = {
 		{ text = 'KiwiMBC', notCheckable= true, isTitle = true },
+		{ text = 'Always Visible Buttons',   notCheckable= true, hasArrow = true, menuList = menuAlways },
 		{ text = 'Buttons Show Delay', notCheckable= true, hasArrow = true, menuList = CreateRange('delayShow', DelayRange) },
 		{ text = 'Buttons Hide Delay', notCheckable= true, hasArrow = true, menuList = CreateRange('delayHide', DelayRange) },
-		{ text = 'Buttons Per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
-		{ text = 'Always Visible Buttons',   notCheckable= true, hasArrow = true, menuList = menuAlways },
-		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
 		{ text = 'Blizzard Buttons', notCheckable= true, hasArrow = true, menuList = {
 			{ text='Zone',      value='zone',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
 			{ text='Clock',     value='clock',    isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
@@ -720,6 +765,8 @@ do
 			{ text='Toggle',    value='toggle',   isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
 			{ text='World Map', value='worldmap', isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
 		} },
+		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
+		{ text = 'Buttons Per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
 		{ text = 'Draw Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.blackBorders end, func = Cfg_DarkToggle },
 		{ text = 'Use Character Profile', isNotRadio=true, checked = function() return KiwiMBCDBC~=nil end, func = Cfg_ProfileToggle },
 		{ text = 'Close Menu', notCheckable = 1, func = function() menuFrame:Hide() end },
