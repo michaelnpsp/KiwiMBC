@@ -373,6 +373,9 @@ do
 	function UpdateButtonsVisibility()
 		timerActive = false
 		if not dragStart and not IsMouseButtonDown() then
+			if boxedVisible and cfg.autoHideBox and not insideMinimap then
+				Boxed_ToggleVisibility()
+			end
 			local alwaysVisible = cfg.avButtons
 			for buttonName, button in pairs(minimapButtons) do
 				if button~=kiwiButton then
@@ -736,6 +739,10 @@ local function Cfg_DarkToggle()
 	SkinButtons()
 end
 
+local function Cfg_AutoHideBoxToggle()
+	cfg.autoHideBox = not cfg.autoHideBox or nil
+end
+
 local function Cfg_DelaySet(key, value)
 	value = tonumber(value)
 	cfg[key] = value and value/10 or cfg[key]
@@ -746,6 +753,7 @@ local function Cfg_ButtonsPerColumnSet(value)
 	cfg.buttonsPerColumn = type(value) == 'table' and value.value or value
 	Boxed_LayoutButtons()
 end
+
 
 ---------------------------------------------------------------------------------------------------------
 -- command line
@@ -872,6 +880,7 @@ do
 		} },
 		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
 		{ text = 'Buttons Per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
+		{ text = 'Auto Hide Boxed Buttons', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.autoHideBox end, func = Cfg_AutoHideBoxToggle },
 		{ text = 'Detach Minimap Button', isNotRadio=true, checked = function() return cfg.detachedMinimapButton end, func = Cfg_DetachedToggle },
 		{ text = 'Lock Minimap Button', isNotRadio=true, hidden = function() return not cfg.detachedMinimapButton end, checked = function() return cfg.lockedMinimapButton end, func = Cfg_LockedToggle },
 		{ text = 'Draw Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.blackBorders end, func = Cfg_DarkToggle },
