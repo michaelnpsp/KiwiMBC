@@ -197,7 +197,6 @@ local function SkinButtons()
 	for _, button in ipairs(fillButtons) do
 		SkinButton(button)
 	end
-
 end
 
 local function GetButtonHumanName(buttonName)
@@ -378,12 +377,9 @@ do
 			end
 			local alwaysVisible = cfg.avButtons
 			for buttonName, button in pairs(minimapButtons) do
-				if button~=kiwiButton then
-					button:SetShown( (insideMinimap or alwaysVisible[buttonName]) and not button.__kmbcHide )
-				else
-					button:SetShown( insideMinimap or alwaysVisible[buttonName] or boxedVisible or cfg.detachedMinimapButton )
-				end
+				button:SetShown( (insideMinimap or alwaysVisible[buttonName]) and not button.__kmbcHide )
 			end
+			kiwiButton:SetShown( insideMinimap or alwaysVisible[kiwiButton:GetName()] or boxedVisible or cfg.detachedMinimapButton )
 		else
 			UpdateButtonsVisibilityDelayed()
 		end
@@ -443,13 +439,14 @@ local function CollectMinimapButton(name, button)
 			button.__kmbcHooked = true
 		end
 		SkinButton(button)
-		if cfg.bxButtons[name] then
-			Boxed_BoxButton(button)
-		else
-			minimapButtons[name] = button
+		if button~=kiwiButton then
+			if cfg.bxButtons[name] then
+				Boxed_BoxButton(button)
+			else
+				minimapButtons[name] = button
+			end
 		end
 		collectTime = GetTime()
-		return true
 	end
 end
 
