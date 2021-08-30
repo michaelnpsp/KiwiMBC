@@ -3,6 +3,11 @@
 local addon = CreateFrame('Frame')
 addon.addonName = ...
 
+--- libraries
+
+local minimapLDB
+local minimapLib = LibStub("LibDBIcon-1.0")
+
 --- upvalues
 local pairs = pairs
 local ipairs = ipairs
@@ -137,13 +142,13 @@ local fillButtons = setmetatable( {}, {
 		button:SetSize(31, 31)
 		local overlay = button:CreateTexture(nil, "OVERLAY")
 		overlay:SetSize(53, 53)
-		overlay:SetTexture(136430) --"Interface\\Minimap\\MiniMap-TrackingBorder"
+		overlay:SetTexture(136430) --'Interface\\Minimap\\MiniMap-TrackingBorder'
 		overlay:SetPoint("TOPLEFT")
 		local c = cfg.blackBorders and 0.15 or 1
 		overlay:SetVertexColor(c,c,c,1)
 		local background = button:CreateTexture(nil, "BACKGROUND")
 		background:SetSize(20, 20)
-		background:SetTexture(136467) --"Interface\\Minimap\\UI-Minimap-Background"
+		background:SetTexture(136467) --'Interface\\Minimap\\UI-Minimap-Background'
 		background:SetVertexColor(1,1,1,0.55)
 		background:SetPoint("TOPLEFT", 7, -5)
 		t[i] = button
@@ -239,7 +244,7 @@ local function ValidateButtonName(buttonName)
 end
 
 local function IterateBoxedButtons()
-	local f, i, c, name = true, 0, 0
+	local f, i, c, name = true, 0, 1
 	return function (k, v)
 		if f then
 			repeat
@@ -250,16 +255,23 @@ local function IterateBoxedButtons()
 				end
 			until name==nil
 			local bpc = cfg.buttonsPerColumn or 50
-			f, i, c = false, 0, math.ceil( c / bpc) * bpc - c - 1
+			f, i, c = false, 0, c>bpc and math.ceil(c/bpc)*bpc-c or 0
 		end
-		if i<c then
+		if i<c then -- return fake buttons to fill holes not ocuppied by real minimap buttons
 			i = i + 1
 			local button = fillButtons[i]
 			button:SetShown(boxedVisible)
 			return button
+		else -- hide unused fake buttons
+			for j=i+1,#fillButtons do
+				fillButtons[j]:Hide()
+			end
 		end
 	end
 end
+---------------------------------------------------------------------------------------------------------
+-- savedvariables database
+---------------------------------------------------------------------------------------------------------
 
 local function SetupDatabase()
 	-- current db setup
@@ -272,6 +284,11 @@ local function SetupDatabase()
 	-- global db setup
 	KiwiMBCDB.global = CopyTable(gdefaults,KiwiMBCDB.global)
 	cfg_global = KiwiMBCDB.global
+end
+
+local function LoadDatabase()
+	delayHide = cfg.delayHide or 0.5
+	delayShow = cfg.delayShow or 0.5
 end
 
 ---------------------------------------------------------------------------------------------------------
@@ -293,6 +310,10 @@ local function Boxed_BoxButton(button)
 			boxed[name] = true
 			table.insert( boxed, name )
 		end
+		button.__kbmcSavedOnDragStart = button:GetScript('OnDragStart')
+		button.__kbmcSavedOnDragStop  = button:GetScript('OnDragStop')
+		button:SetScript('OnDragStart',nil)
+		button:SetScript('OnDragStop',nil)
 		button:SetShown(boxedVisible)
 	end
 end
@@ -311,6 +332,10 @@ local function Boxed_UnboxButton(button)
 		boxed[name] = nil
 		RemoveTableValue( boxed, name )
 		boxedVisible = next(boxedButtons) and boxedVisible
+		button:SetScript('OnDragStart',button.__kbmcSavedOnDragStart)
+		button:SetScript('OnDragStop', button.__kbmcSavedOnDragStop)
+		button.__kbmcSavedOnDragStart = nil
+		button.__kbmcSavedOnDragStop  = nil
 	end
 end
 
@@ -319,9 +344,6 @@ local function Boxed_LayoutButtons()
 	local count = max
 	local firstButton = kiwiButton
 	local prevButton = kiwiButton
-	for _,button in ipairs(fillButtons) do
-		button:Hide()
-	end
 	for button in IterateBoxedButtons() do
 		button:ClearAllPoints()
 		if count>0 then
@@ -353,8 +375,10 @@ do
 		if not dragStart and not IsMouseButtonDown() then
 			local alwaysVisible = cfg.avButtons
 			for buttonName, button in pairs(minimapButtons) do
-				if insideMinimap or not boxedVisible or button~=kiwiButton then
-					button:SetShown( (insideMinimap or alwaysVisible[buttonName]) and not button.__kmbcHide)
+				if button~=kiwiButton then
+					button:SetShown( (insideMinimap or alwaysVisible[buttonName]) and not button.__kmbcHide )
+				else
+					button:SetShown( insideMinimap or alwaysVisible[buttonName] or boxedVisible or cfg.detachedMinimapButton )
 				end
 			end
 		else
@@ -480,7 +504,6 @@ do
 	end
 end
 
-
 ---------------------------------------------------------------------------------------------------------
 -- blizzard buttons visibility
 ---------------------------------------------------------------------------------------------------------
@@ -510,6 +533,68 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------------
+--- minimap button setup
+---------------------------------------------------------------------------------------------------------
+
+local CreateMinimapButton, DetachMinimapButton, ReattachMinimapButton, SaveMinimapButtonPosition
+do
+	local function OnUpdate()
+		local mx, my = Minimap:GetCenter()
+		local px, py = GetCursorPosition()
+		local scale  = Minimap:GetEffectiveScale()
+		kiwiButton:SetPoint('CENTER', Minimap, 'CENTER', px/scale - mx, py/scale - my)
+	end
+
+	local function OnDragStart()
+		if not cfg.lockedMinimapButton then
+			kiwiButton:SetScript( 'OnUpdate', OnUpdate )
+		end
+	end
+
+	local function OnDragStop()
+		if not cfg.lockedMinimapButton then
+			kiwiButton:SetScript('OnUpdate',nil)
+			SaveMinimapButtonPosition()
+		end
+	end
+
+	function SaveMinimapButtonPosition()
+		local mx, my = Minimap:GetCenter()
+		local bx, by = kiwiButton:GetCenter()
+		cfg.minimapIcon.detachedPosX = bx-mx
+		cfg.minimapIcon.detachedPosY = by-my
+	end
+
+	function DetachMinimapButton()
+		minimapLib:Lock('KiwiMBC')
+		kiwiButton:SetScript("OnDragStart", OnDragStart)
+		kiwiButton:SetScript("OnDragStop", OnDragStop)
+		kiwiButton:ClearAllPoints()
+		kiwiButton:SetPoint('CENTER', Minimap, 'CENTER', cfg.minimapIcon.detachedPosX , cfg.minimapIcon.detachedPosY )
+	end
+
+	function ReattachMinimapButton()
+		cfg.lockedMinimapButton = nil
+		cfg.minimapIcon.detachedPosX = nil
+		cfg.minimapIcon.detachedPosY = nil
+		minimapLib:Unlock('KiwiMBC')
+		minimapLib:Hide('KiwiMBC')
+		minimapLib:Show('KiwiMBC')
+	end
+
+	function CreateMinimapButton()
+		Minimap:HookScript('OnEnter', MinimapOnEnter)
+		Minimap:HookScript('OnLeave', MinimapOnLeave)
+		minimapLib:Register("KiwiMBC", minimapLDB, cfg.minimapIcon)
+		kiwiButton = minimapLib:GetMinimapButton('KiwiMBC')
+		if cfg.detachedMinimapButton then
+			DetachMinimapButton()
+		end
+	end
+
+end
+
+---------------------------------------------------------------------------------------------------------
 --- init
 ---------------------------------------------------------------------------------------------------------
 
@@ -520,16 +605,14 @@ addon:SetScript("OnEvent", function(frame, event, name)
 		addon.__loaded = true
 	end
 	if addon.__loaded and IsLoggedIn() then
-		SetupDatabase()
 		addon:UnregisterAllEvents()
-		addon.minimapLib:Register("KiwiMBC", addon.minimapLDB, cfg.minimapIcon)
-		kiwiButton = addon.minimapLib:GetMinimapButton('KiwiMBC')
-		Minimap:HookScript('OnEnter', MinimapOnEnter)
-		Minimap:HookScript('OnLeave', MinimapOnLeave)
-		delayHide = cfg.delayHide or 0.5
-		delayShow = cfg.delayShow or 0.5
-		UpdateBlizzardVisibility()
-		C_Timer_After( .05, CollectMinimapButtons )
+		SetupDatabase()
+		LoadDatabase()
+		C_Timer_After( .05, function()
+			CreateMinimapButton()
+			UpdateBlizzardVisibility()
+			CollectMinimapButtons()
+		end )
 		C_Timer_After( 3, function()
 			CollectMinimapButtons()
 			Boxed_LayoutButtons()
@@ -541,8 +624,7 @@ end)
 -- minimap&ldb button
 ---------------------------------------------------------------------------------------------------------
 
-addon.minimapLib = LibStub("LibDBIcon-1.0")
-addon.minimapLDB = LibStub("LibDataBroker-1.1", true):NewDataObject("KiwiMBC", {
+minimapLDB = LibStub("LibDataBroker-1.1", true):NewDataObject("KiwiMBC", {
 	type  = "launcher",
 	label = GetAddOnInfo("KiwiMBC", "Title"),
 	icon = "Interface\\Addons\\KiwiMBC\\icon",
@@ -632,6 +714,20 @@ local function Cfg_ProfileToggle()
 			ReloadUI()
 		end)
 	end
+end
+
+local function Cfg_DetachedToggle()
+	cfg.detachedMinimapButton = not cfg.detachedMinimapButton or nil
+	if cfg.detachedMinimapButton then
+		SaveMinimapButtonPosition()
+		DetachMinimapButton()
+	else
+		ReattachMinimapButton()
+	end
+end
+
+local function Cfg_LockedToggle()
+	cfg.lockedMinimapButton = not cfg.lockedMinimapButton or nil
 end
 
 local function Cfg_DarkToggle()
@@ -767,6 +863,8 @@ do
 		} },
 		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
 		{ text = 'Buttons Per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
+		{ text = 'Detach Minimap Button', isNotRadio=true, checked = function() return cfg.detachedMinimapButton end, func = Cfg_DetachedToggle },
+		{ text = 'Lock Minimap Button', isNotRadio=true, disabled = function() return false end, checked = function() return cfg.lockedMinimapButton end, func = Cfg_LockedToggle },
 		{ text = 'Draw Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.blackBorders end, func = Cfg_DarkToggle },
 		{ text = 'Use Character Profile', isNotRadio=true, checked = function() return KiwiMBCDBC~=nil end, func = Cfg_ProfileToggle },
 		{ text = 'Close Menu', notCheckable = 1, func = function() menuFrame:Hide() end },
