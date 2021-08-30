@@ -761,6 +761,12 @@ SlashCmdList.KIWIMBC = function(args)
 		Cfg_CollectToggle(arg2)
 	elseif arg1 == 'ignore' then
 		Cfg_IgnoreToggle(arg2)
+	elseif arg1 == 'detach' then
+		Cfg_DetachedToggle()
+	elseif arg1 == 'reset' then
+		if cfg.detachedMinimapButton then
+			Cfg_DetachedToggle()
+		end
 	elseif arg1~='' then
 		Cfg_BlizToggle(arg1)
 	else
@@ -776,6 +782,8 @@ SlashCmdList.KIWIMBC = function(args)
 		print("  /kmbc delay [1-50] [1-50] - [hide] [show] delay in tenths of a second")
 		print("  /kmbc collect button_name  - toggle button_name collect status")
 		print("  /kmbc ignore button_name  - toggle button_name ignore status")
+		print("  /kmbc detach - toggle minimap button detach mode")
+		print("  /kmbc reset - reset minimap button position")
 		print("\n")
 	end
 	PrintNameList(collectedButtons,     "Collected minimap buttons:")
@@ -864,16 +872,31 @@ do
 		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
 		{ text = 'Buttons Per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
 		{ text = 'Detach Minimap Button', isNotRadio=true, checked = function() return cfg.detachedMinimapButton end, func = Cfg_DetachedToggle },
-		{ text = 'Lock Minimap Button', isNotRadio=true, disabled = function() return false end, checked = function() return cfg.lockedMinimapButton end, func = Cfg_LockedToggle },
+		{ text = 'Lock Minimap Button', isNotRadio=true, hidden = function() return not cfg.detachedMinimapButton end, checked = function() return cfg.lockedMinimapButton end, func = Cfg_LockedToggle },
 		{ text = 'Draw Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.blackBorders end, func = Cfg_DarkToggle },
 		{ text = 'Use Character Profile', isNotRadio=true, checked = function() return KiwiMBCDBC~=nil end, func = Cfg_ProfileToggle },
 		{ text = 'Close Menu', notCheckable = 1, func = function() menuFrame:Hide() end },
 	}
+	-- my easy menu implementation
+	local function MyEasyMenu_Initialize( frame, level, menuList )
+		for index, item in ipairs(menuList) do
+			if item.text and (item.hidden==nil or not item.hidden()) then
+				item.index = index
+				UIDropDownMenu_AddButton(item, level)
+			end
+		end
+	end
+	local function MyEasyMenu( menuList, menuFrame, anchor, x, y, displayMode, autoHideDelay )
+		menuFrame.displayMode = displayMode
+		UIDropDownMenu_Initialize(menuFrame, MyEasyMenu_Initialize, displayMode, nil, menuList)
+		ToggleDropDownMenu(1, nil, menuFrame, anchor, x, y, menuList, nil, autoHideDelay)
+	end
+	-- display the menu
 	function addon:ShowPopupMenu()
 		UpdateSubMenus()
 		local x, y = GetCursorPosition()
 		local uiScale = UIParent:GetEffectiveScale()
 		UIDropDownMenu_SetAnchor(menuFrame, x/uiScale, y/uiScale, 'TOPRIGHT', UIParent, 'BOTTOMLEFT')
-		EasyMenu(menuTable, menuFrame, nil, 0 , 0, 'MENU', 1)
+		MyEasyMenu(menuTable, menuFrame, nil, 0 , 0, 'MENU', 1)
 	end
 end
