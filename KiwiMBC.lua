@@ -3,6 +3,9 @@
 local addon = CreateFrame('Frame')
 addon.addonName = ...
 
+local versionToc = GetAddOnMetadata(addon.addonName,"Version")
+versionToc = versionToc=='@project-version@' and 'Dev' or 'v'..versionToc
+
 --- libraries
 
 local minimapLDB
@@ -16,13 +19,9 @@ local strfind = strfind
 local GetTime = GetTime
 local C_Timer_After = C_Timer.After
 
--- addon version
-local versionToc = GetAddOnMetadata("KiwiMBC","Version")
-versionToc = versionToc=='@project-version@' and 'Dev' or 'v'..versionToc
-
 --- savedvariables defaults
 local defaults = { -- default settings
-	hide         = { clock = false, zoom = false, time = false, zone = false, toggle = false, worldmap = false },
+	hide         = { clock = false, zoom = false, time = false, zone = false, toggle = false, worldmap = false }, -- blizzard buttons
 	bxButtons    = {}, -- boxed buttons
 	avButtons    = {}, -- always visible buttons
 	minimapIcon  = {}, -- used by LibDBIcon-1.0
@@ -119,7 +118,7 @@ local kiwiButton
 local collectedButtons = {}
 local collectTime = 0
 
--- standard minimap buttons
+-- buttons attached to the minimap (non-boxed)
 local minimapButtons = {}
 local insideMinimap = false
 local dragStart = false
@@ -246,7 +245,7 @@ end
 local function IterateBoxedButtons()
 	local f, i, c, name = true, 0, 1
 	return function (k, v)
-		if f then
+		if f then -- return real minimap buttons
 			repeat
 				i = i + 1; name = cfg.bxButtons[i]
 				if name then
@@ -269,6 +268,7 @@ local function IterateBoxedButtons()
 		end
 	end
 end
+
 ---------------------------------------------------------------------------------------------------------
 -- savedvariables database
 ---------------------------------------------------------------------------------------------------------
@@ -397,6 +397,7 @@ end
 ---------------------------------------------------------------------------------------------------------
 -- event hooks
 ---------------------------------------------------------------------------------------------------------
+
 local function MinimapOnEnter(f)
 	if not insideMinimap then
 		insideMinimap = true
@@ -533,7 +534,7 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------------
---- minimap button setup
+--- minimap button position setup
 ---------------------------------------------------------------------------------------------------------
 
 local CreateMinimapButton, DetachMinimapButton, ReattachMinimapButton, SaveMinimapButtonPosition
@@ -878,7 +879,7 @@ do
 		{ text = 'Close Menu', notCheckable = 1, func = function() menuFrame:Hide() end },
 	}
 	-- my easy menu implementation
-	local function MyEasyMenu_Initialize( frame, level, menuList )
+	local function MyEasyMenu_Initialize(frame, level, menuList)
 		for index, item in ipairs(menuList) do
 			if item.text and (item.hidden==nil or not item.hidden()) then
 				item.index = index
@@ -886,9 +887,9 @@ do
 			end
 		end
 	end
-	local function MyEasyMenu( menuList, menuFrame, anchor, x, y, displayMode, autoHideDelay )
-		menuFrame.displayMode = displayMode
-		UIDropDownMenu_Initialize(menuFrame, MyEasyMenu_Initialize, displayMode, nil, menuList)
+	local function MyEasyMenu(menuList, menuFrame, anchor, x, y, autoHideDelay)
+		menuFrame.displayMode = 'MENU'
+		UIDropDownMenu_Initialize(menuFrame, MyEasyMenu_Initialize, 'MENU', nil, menuList)
 		ToggleDropDownMenu(1, nil, menuFrame, anchor, x, y, menuList, nil, autoHideDelay)
 	end
 	-- display the menu
@@ -897,6 +898,6 @@ do
 		local x, y = GetCursorPosition()
 		local uiScale = UIParent:GetEffectiveScale()
 		UIDropDownMenu_SetAnchor(menuFrame, x/uiScale, y/uiScale, 'TOPRIGHT', UIParent, 'BOTTOMLEFT')
-		MyEasyMenu(menuTable, menuFrame, nil, 0 , 0, 'MENU', 1)
+		MyEasyMenu(menuTable, menuFrame, nil, 0 , 0, 1)
 	end
 end
