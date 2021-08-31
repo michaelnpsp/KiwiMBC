@@ -339,6 +339,7 @@ local function Boxed_UnboxButton(button)
 end
 
 local function Boxed_LayoutButtons()
+	local spacing = 4 - (cfg.buttonsSpacing or 0)
 	local max = (cfg.buttonsPerColumn or 50 ) -1
 	local count = max
 	local firstButton = kiwiButton
@@ -346,10 +347,10 @@ local function Boxed_LayoutButtons()
 	for button in IterateBoxedButtons() do
 		button:ClearAllPoints()
 		if count>0 then
-			button:SetPoint('TOP',prevButton,'BOTTOM',0,4)
+			button:SetPoint('TOP', prevButton, 'BOTTOM', 0, spacing)
 			count = count - 1
 		else
-			button:SetPoint('RIGHT', firstButton, 'LEFT', 4, 0)
+			button:SetPoint('RIGHT', firstButton, 'LEFT', spacing, 0)
 			count, firstButton = max, button
 		end
 		prevButton = button
@@ -738,12 +739,18 @@ end
 
 local function Cfg_AutoHideBoxToggle()
 	cfg.autoHideBox = not cfg.autoHideBox or nil
+	UpdateButtonsVisibilityDelayed()
 end
 
 local function Cfg_DelaySet(key, value)
 	value = tonumber(value)
 	cfg[key] = value and value/10 or cfg[key]
 	delayHide, delayShow = cfg.delayHide, cfg.delayShow
+end
+
+local function Cfg_ButtonsSpacingSet(value)
+	cfg.buttonsSpacing = type(value) == 'table' and value.value or value
+	Boxed_LayoutButtons()
 end
 
 local function Cfg_ButtonsPerColumnSet(value)
@@ -824,6 +831,14 @@ do
 	local function AlwaysGet(info)
 		return cfg.avButtons[info.value]
 	end
+	-- buttons spacing
+	local function SpacingText(value)
+		return value>=0 and '+'..tostring(value) or value
+	end
+	local function SpacingGet(info)
+		return (cfg.buttonsSpacing or 0) == info.value
+	end
+	local SpacingRange = { text = SpacingText, checked = SpacingGet, func = Cfg_ButtonsSpacingSet, range = {-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10} }
 	-- buttons per column
 	local function ColGet(info)
 		return (cfg.buttonsPerColumn or 50) == info.value
@@ -875,11 +890,12 @@ do
 			{ text='World Map', value='worldmap', isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
 		} },
 		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
+		{ text = 'Buttons Spacing',  notCheckable= true, hasArrow = true,  menuList = CreateRange('buttonsSpacing', SpacingRange) },
 		{ text = 'Buttons Per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
 		{ text = 'Auto Hide Boxed Buttons', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.autoHideBox end, func = Cfg_AutoHideBoxToggle },
+		{ text = 'Draw Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.blackBorders end, func = Cfg_DarkToggle },
 		{ text = 'Detach Minimap Button', isNotRadio=true, checked = function() return cfg.detachedMinimapButton end, func = Cfg_DetachedToggle },
 		{ text = 'Lock Minimap Button', isNotRadio=true, hidden = function() return not cfg.detachedMinimapButton end, checked = function() return cfg.lockedMinimapButton end, func = Cfg_LockedToggle },
-		{ text = 'Draw Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.blackBorders end, func = Cfg_DarkToggle },
 		{ text = 'Use Character Profile', isNotRadio=true, checked = function() return KiwiMBCDBC~=nil end, func = Cfg_ProfileToggle },
 		{ text = 'Close Menu', notCheckable = 1, func = function() menuFrame:Hide() end },
 	}
