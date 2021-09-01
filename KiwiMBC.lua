@@ -332,7 +332,7 @@ local UpdateBlizzardVisibility, UpdateZoneVisibility
 do
 	local function HideZoneText()
 		MinimapZoneTextButton:SetShown(not cfg.hide.zone)
-		MinimapBorderTop:SetTexture( cfg.hide.zone and "" or "Interface\\Minimap\\UI-Minimap-Border")
+		MinimapBorderTop:SetAlpha( cfg.hide.zone and 0 or 1)
 	end
 	function UpdateZoneVisibility( name, frame )
 		if frame then
@@ -945,7 +945,7 @@ do
 	end
 	-- main menu
 	local menuTable = {
-		{ text = 'KiwiMBC', notCheckable= true, isTitle = true },
+		{ text = 'Minimap Buttons', notCheckable= true, isTitle = true },
 		{ text = 'Always Visible Buttons',   notCheckable= true, hasArrow = true, menuList = menuAlways },
 		{ text = 'Buttons Show Delay', notCheckable= true, hasArrow = true, menuList = CreateRange('delayShow', DelayRange) },
 		{ text = 'Buttons Hide Delay', notCheckable= true, hasArrow = true, menuList = CreateRange('delayHide', DelayRange) },
@@ -958,8 +958,9 @@ do
 			{ text='World Map',       value='worldmap', isNotRadio=true, keepShownOnClick=1, hidden=BlizHidden, checked=BlizGet, func=Cfg_BlizToggle },
 			{ text='Garrison Report', value='garrison', isNotRadio=true, keepShownOnClick=1, hidden=BlizHidden, checked=BlizGet, func=Cfg_BlizToggle },
 		} },
+		{ text = 'Buttons in a Box', notCheckable= true, isTitle = true },
 		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
-		{ text = 'Buttons Growth', notCheckable= true, hasArrow = true, menuList = {
+		{ text = 'Buttons Grow Direction', notCheckable= true, hasArrow = true, menuList = {
 			{ text='Bottom Left',  value='BOTTOMLEFT',  checked=GrowthGet, func=Cfg_ButtonsGrowthSet },
 			{ text='Bottom Right', value='BOTTOMRIGHT', checked=GrowthGet, func=Cfg_ButtonsGrowthSet },
 			{ text='Top Left',     value='TOPLEFT',     checked=GrowthGet, func=Cfg_ButtonsGrowthSet },
@@ -967,10 +968,11 @@ do
 		} },
 		{ text = 'Buttons Spacing',  notCheckable= true, hasArrow = true,  menuList = CreateRange('buttonsSpacing', SpacingRange) },
 		{ text = 'Buttons Per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
-		{ text = 'Auto Hide Boxed Buttons', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.autoHideBox end, func = Cfg_AutoHideBoxToggle },
-		{ text = 'Draw Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.blackBorders end, func = Cfg_DarkToggle },
+		{ text = 'Auto Hide Buttons', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.autoHideBox end, func = Cfg_AutoHideBoxToggle },
+		{ text = 'Miscellaneous', notCheckable= true, isTitle = true },
 		{ text = 'Detach Minimap Button', isNotRadio=true, checked = function() return cfg.detachedMinimapButton end, func = Cfg_DetachedToggle },
 		{ text = 'Lock Minimap Button', isNotRadio=true, hidden = function() return not cfg.detachedMinimapButton end, checked = function() return cfg.lockedMinimapButton end, func = Cfg_LockedToggle },
+		{ text = 'Draw Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.blackBorders end, func = Cfg_DarkToggle },
 		{ text = 'Use Character Profile', isNotRadio=true, checked = function() return KiwiMBCDBC~=nil end, func = Cfg_ProfileToggle },
 		{ text = 'Close Menu', notCheckable = 1, func = function() menuFrame:Hide() end },
 	}
