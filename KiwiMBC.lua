@@ -35,7 +35,8 @@ local gdefaults = { -- global defaults (data shared by all characters)
 --- frames to ignore in minimap button collection
 local Ignore = {
 	"Questie", -- needed to ignore trillions of questie icons (QuestieFrameNNN)
-	"LibDBIcon10_KiwiMBCBoxFiller",
+	"SexyMap",
+	"KiwiMBCBoxFiller",
 	ActionBar = true,
 	BonusActionButton = true,
 	MainMenu = true,
@@ -106,6 +107,14 @@ local nonBoxedButtons = {
 local buttonTranslations = {
 	MiniMapTracking = 'Tracking',
 	GarrisonLandingPageMinimapButton = 'Order Hall',
+}
+
+-- layout stuff
+local LayoutPoints = {
+	BOTTOM = { 'TOP',    'BOTTOM', -1 },
+	TOP    = { 'BOTTOM', 'TOP',     1 },
+	LEFT   = { 'RIGHT',  'LEFT',   -1 },
+	RIGHT  = { 'LEFT',   'RIGHT',   1 },
 }
 
 -- savedvariables
@@ -339,18 +348,21 @@ local function Boxed_UnboxButton(button)
 end
 
 local function Boxed_LayoutButtons()
-	local spacing = 4 - (cfg.buttonsSpacing or 0)
+	local grow = cfg.buttonsGrowth or 'BOTTOMLEFT'
+	local spacing = (cfg.buttonsSpacing or 0) - 4
 	local max = (cfg.buttonsPerColumn or 50 ) -1
 	local count = max
 	local firstButton = kiwiButton
 	local prevButton = kiwiButton
+	local vp1, vp2, vmul = unpack( LayoutPoints[ strmatch(grow, 'TOP')  or 'BOTTOM' ] )
+	local hp1, hp2, hmul = unpack( LayoutPoints[ strmatch(grow, 'LEFT') or 'RIGHT'  ] )
 	for button in IterateBoxedButtons() do
 		button:ClearAllPoints()
 		if count>0 then
-			button:SetPoint('TOP', prevButton, 'BOTTOM', 0, spacing)
+			button:SetPoint( vp1, prevButton, vp2, 0, spacing * vmul )
 			count = count - 1
 		else
-			button:SetPoint('RIGHT', firstButton, 'LEFT', spacing, 0)
+			button:SetPoint( hp1, firstButton, hp2, spacing * hmul, 0)
 			count, firstButton = max, button
 		end
 		prevButton = button
@@ -758,6 +770,12 @@ local function Cfg_ButtonsPerColumnSet(value)
 	Boxed_LayoutButtons()
 end
 
+local function Cfg_ButtonsGrowthSet(info)
+	cfg.buttonsGrowth = info.value
+	Boxed_LayoutButtons()
+end
+
+
 ---------------------------------------------------------------------------------------------------------
 -- command line
 ---------------------------------------------------------------------------------------------------------
@@ -831,6 +849,10 @@ do
 	local function AlwaysGet(info)
 		return cfg.avButtons[info.value]
 	end
+	-- buttons growth
+	local function GrowthGet(info)
+		return (cfg.buttonsGrowth or 'BOTTOMLEFT') == info.value
+	end
 	-- buttons spacing
 	local function SpacingText(value)
 		return value>=0 and '+'..tostring(value) or value
@@ -890,6 +912,12 @@ do
 			{ text='World Map', value='worldmap', isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
 		} },
 		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
+		{ text = 'Buttons Growth', notCheckable= true, hasArrow = true, menuList = {
+			{ text='Bottom Left',  value='BOTTOMLEFT',  checked=GrowthGet, func=Cfg_ButtonsGrowthSet },
+			{ text='Bottom Right', value='BOTTOMRIGHT', checked=GrowthGet, func=Cfg_ButtonsGrowthSet },
+			{ text='Top Left',     value='TOPLEFT',     checked=GrowthGet, func=Cfg_ButtonsGrowthSet },
+			{ text='Top Right',    value='TOPRIGHT',    checked=GrowthGet, func=Cfg_ButtonsGrowthSet },
+		} },
 		{ text = 'Buttons Spacing',  notCheckable= true, hasArrow = true,  menuList = CreateRange('buttonsSpacing', SpacingRange) },
 		{ text = 'Buttons Per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
 		{ text = 'Auto Hide Boxed Buttons', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.autoHideBox end, func = Cfg_AutoHideBoxToggle },
