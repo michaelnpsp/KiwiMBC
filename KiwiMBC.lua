@@ -21,7 +21,7 @@ local C_Timer_After = C_Timer.After
 
 --- savedvariables defaults
 local defaults = { -- default settings
-	hide         = { clock = false, zoom = false, time = false, zone = false, toggle = false, worldmap = false }, -- blizzard buttons
+	hide         = { clock = false, zoom = false, time = false, zone = false, toggle = false, worldmap = false, garrison = false }, -- blizzard buttons
 	bxButtons    = {}, -- boxed buttons
 	avButtons    = {}, -- always visible buttons
 	minimapIcon  = {}, -- used by LibDBIcon-1.0
@@ -90,6 +90,7 @@ local Ignore = {
 local Valid = {
 	MinimapZoomIn = true,
 	MinimapZoomOut = true,
+	GarrisonLandingPageMinimapButton = true,
 	LibDBIcon10_Questie = true,
 }
 
@@ -103,10 +104,33 @@ local nonBoxedButtons = {
 	GarrisonLandingPageMinimapButton = true,
 }
 
+-- blizzard zones
+local BlizzardZones = {
+	zone  = MinimapZoneTextButton,
+	clock = TimeManagerClockButton,
+	zoom  = MinimapZoomIn,
+	time  = GameTimeFrame,
+	toggle = MinimapToggleButton,
+	worldmap = MiniMapWorldMapButton,
+	garrison = GarrisonLandingPageMinimapButton,
+}
+
+-- blizzard buttons
+local BlizzardButtonsOrder = {
+	MiniMapTracking = 1,
+	MiniMapTrackingButton = 2,
+	MinimapZoomIn = 3,
+	MinimapZoomOut = 4,
+	MinimapToggleButton = 5,
+	MiniMapWorldMapButton = 6,
+	TimeManagerClockButton = 7,
+	GarrisonLandingPageMinimapButton = 8,
+}
+
 -- button human description translations
 local buttonTranslations = {
 	MiniMapTracking = 'Tracking',
-	GarrisonLandingPageMinimapButton = 'Order Hall',
+	GarrisonLandingPageMinimapButton = 'Garrison Report',
 }
 
 -- layout stuff
@@ -297,6 +321,52 @@ end
 local function LoadDatabase()
 	delayHide = cfg.delayHide or 0.5
 	delayShow = cfg.delayShow or 0.5
+end
+
+
+---------------------------------------------------------------------------------------------------------
+-- blizzard buttons visibility
+---------------------------------------------------------------------------------------------------------
+
+local UpdateBlizzardVisibility, UpdateZoneVisibility
+do
+	local function HideZoneText()
+		MinimapZoneTextButton:SetShown(not cfg.hide.zone)
+		MinimapBorderTop:SetTexture( cfg.hide.zone and "" or "Interface\\Minimap\\UI-Minimap-Border")
+	end
+	function UpdateZoneVisibility( name, frame )
+		if frame then
+			local hidden = frame.__kmbcDisabled or cfg.hide[name] or nil
+			frame:SetShown(not hidden)
+			frame.__kmbcHide = hidden
+		end
+	end
+	function UpdateBlizzardVisibility()
+		UpdateZoneVisibility( 'clock', TimeManagerClockButton )
+		UpdateZoneVisibility( 'zoom',  MinimapZoomOut )
+		UpdateZoneVisibility( 'zoom',  MinimapZoomIn )
+		UpdateZoneVisibility( 'time',  GameTimeFrame )
+		UpdateZoneVisibility( 'toggle', MinimapToggleButton )
+		UpdateZoneVisibility( 'worldmap', MiniMapWorldMapButton )
+		UpdateZoneVisibility( 'garrison', GarrisonLandingPageMinimapButton )
+		HideZoneText()
+	end
+end
+
+---------------------------------------------------------------------------------------------------------
+-- setup events
+---------------------------------------------------------------------------------------------------------
+
+local function SetupEvents()
+	addon:UnregisterAllEvents()
+	if GarrisonLandingPageMinimapButton then
+		addon:RegisterEvent('GARRISON_HIDE_LANDING_PAGE')
+		addon:RegisterEvent('GARRISON_SHOW_LANDING_PAGE')
+		addon:SetScript( 'OnEvent', function(frame, event)
+			GarrisonLandingPageMinimapButton.__kmbcDisabled = (event=='GARRISON_HIDE_LANDING_PAGE')
+			UpdateZoneVisibility( 'garrison',GarrisonLandingPageMinimapButton)
+		end)
+	end
 end
 
 ---------------------------------------------------------------------------------------------------------
@@ -519,34 +589,6 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------------
--- blizzard buttons visibility
----------------------------------------------------------------------------------------------------------
-
-local UpdateBlizzardVisibility
-do
-	local function Hide( name, frame )
-		if frame then
-			local hidden = cfg.hide[name] or nil
-			frame:SetShown(not hidden)
-			frame.__kmbcHide = hidden
-		end
-	end
-	local function HideZoneText()
-		MinimapZoneTextButton:SetShown(not cfg.hide.zone)
-		MinimapBorderTop:SetTexture( cfg.hide.zone and "" or "Interface\\Minimap\\UI-Minimap-Border")
-	end
-	function UpdateBlizzardVisibility()
-		Hide( 'clock', TimeManagerClockButton )
-		Hide( 'zoom',  MinimapZoomOut )
-		Hide( 'zoom',  MinimapZoomIn )
-		Hide( 'time',  GameTimeFrame )
-		Hide( 'toggle', MinimapToggleButton )
-		Hide( 'worldmap', MiniMapWorldMapButton )
-		HideZoneText()
-	end
-end
-
----------------------------------------------------------------------------------------------------------
 --- minimap button position setup
 ---------------------------------------------------------------------------------------------------------
 
@@ -619,9 +661,9 @@ addon:SetScript("OnEvent", function(frame, event, name)
 		addon.__loaded = true
 	end
 	if addon.__loaded and IsLoggedIn() then
-		addon:UnregisterAllEvents()
 		SetupDatabase()
 		LoadDatabase()
+		SetupEvents()
 		C_Timer_After( .05, function()
 			CreateMinimapButton()
 			UpdateBlizzardVisibility()
@@ -841,6 +883,9 @@ do
 	local function BlizGet(info)
 		return not cfg.hide[info.value]
 	end
+	local function BlizHidden(info)
+		return not BlizzardZones[info.value]
+	end
 	-- boxed buttons
 	local function BoxedGet(info)
 		return cfg.bxButtons[info.value]
@@ -882,16 +927,17 @@ do
 	local function UpdateSubMenus()
 		if collectTime>updateTime then
 			local sortedButtons = {}
-			for name in pairs(collectedButtons) do
-				table.insert(sortedButtons, name)
+			for buttonName in pairs(collectedButtons) do
+				local humanName = GetButtonHumanName(buttonName)
+				table.insert(sortedButtons, { string.format('%02d%s', BlizzardButtonsOrder[buttonName] or 0, humanName), buttonName, humanName  } )
 			end
-			table.sort(sortedButtons)
+			table.sort(sortedButtons, function(a,b)	return a[1]<b[1] end )
 			wipe(menuAlways); wipe(menuBoxed)
- 			for _,buttonName in ipairs(sortedButtons) do
-				local name = GetButtonHumanName(buttonName)
-				table.insert(menuAlways, {text=name, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=AlwaysGet, func=Cfg_AlwaysToggle} )
+ 			for _,button in ipairs(sortedButtons) do
+				local buttonName, humanName = button[2], button[3]
+				table.insert(menuAlways, {text=humanName, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=AlwaysGet, func=Cfg_AlwaysToggle} )
 				if not nonBoxedButtons[buttonName] then
-					table.insert(menuBoxed, {text=name, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=BoxedGet, func=Cfg_BoxedToggle} )
+					table.insert(menuBoxed, {text=humanName, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=BoxedGet, func=Cfg_BoxedToggle} )
 				end
 			end
 			updateTime = collectTime+0.01
@@ -904,12 +950,13 @@ do
 		{ text = 'Buttons Show Delay', notCheckable= true, hasArrow = true, menuList = CreateRange('delayShow', DelayRange) },
 		{ text = 'Buttons Hide Delay', notCheckable= true, hasArrow = true, menuList = CreateRange('delayHide', DelayRange) },
 		{ text = 'Blizzard Buttons', notCheckable= true, hasArrow = true, menuList = {
-			{ text='Zone',      value='zone',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
-			{ text='Clock',     value='clock',    isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
-			{ text='Zoom',      value='zoom',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
-			{ text='Time',      value='time',     isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
-			{ text='Toggle',    value='toggle',   isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
-			{ text='World Map', value='worldmap', isNotRadio=true, keepShownOnClick=1, checked=BlizGet, func=Cfg_BlizToggle },
+			{ text='Zone',            value='zone',     isNotRadio=true, keepShownOnClick=1, hidden=BlizHidden, checked=BlizGet, func=Cfg_BlizToggle },
+			{ text='Clock',           value='clock',    isNotRadio=true, keepShownOnClick=1, hidden=BlizHidden, checked=BlizGet, func=Cfg_BlizToggle },
+			{ text='Zoom',            value='zoom',     isNotRadio=true, keepShownOnClick=1, hidden=BlizHidden, checked=BlizGet, func=Cfg_BlizToggle },
+			{ text='Time',            value='time',     isNotRadio=true, keepShownOnClick=1, hidden=BlizHidden, checked=BlizGet, func=Cfg_BlizToggle },
+			{ text='Toggle',          value='toggle',   isNotRadio=true, keepShownOnClick=1, hidden=BlizHidden, checked=BlizGet, func=Cfg_BlizToggle },
+			{ text='World Map',       value='worldmap', isNotRadio=true, keepShownOnClick=1, hidden=BlizHidden, checked=BlizGet, func=Cfg_BlizToggle },
+			{ text='Garrison Report', value='garrison', isNotRadio=true, keepShownOnClick=1, hidden=BlizHidden, checked=BlizGet, func=Cfg_BlizToggle },
 		} },
 		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
 		{ text = 'Buttons Growth', notCheckable= true, hasArrow = true, menuList = {
@@ -930,7 +977,7 @@ do
 	-- my easy menu implementation
 	local function MyEasyMenu_Initialize(frame, level, menuList)
 		for index, item in ipairs(menuList) do
-			if item.text and (item.hidden==nil or not item.hidden()) then
+			if item.text and (item.hidden==nil or not item.hidden(item)) then
 				item.index = index
 				UIDropDownMenu_AddButton(item, level)
 			end
