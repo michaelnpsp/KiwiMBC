@@ -106,13 +106,13 @@ local nonBoxedButtons = {
 
 -- blizzard zones
 local BlizzardZones = {
-	zone  = MinimapZoneTextButton,
-	clock = TimeManagerClockButton,
-	zoom  = MinimapZoomIn,
-	time  = GameTimeFrame,
-	toggle = MinimapToggleButton,
-	worldmap = MiniMapWorldMapButton,
-	garrison = GarrisonLandingPageMinimapButton,
+	zone  = 'MinimapZoneTextButton',
+	clock = 'TimeManagerClockButton',
+	zoom  = 'MinimapZoomIn',
+	time  = 'GameTimeFrame',
+	toggle = 'MinimapToggleButton',
+	worldmap = 'MiniMapWorldMapButton',
+	garrison = 'GarrisonLandingPageMinimapButton',
 }
 
 -- blizzard buttons
@@ -884,7 +884,7 @@ do
 		return not cfg.hide[info.value]
 	end
 	local function BlizHidden(info)
-		return not BlizzardZones[info.value]
+		return not _G[ BlizzardZones[info.value] ]
 	end
 	-- boxed buttons
 	local function BoxedGet(info)
