@@ -104,6 +104,12 @@ local nonBoxedButtons = {
 	GarrisonLandingPageMinimapButton = true,
 }
 
+-- buttons cannot be skined
+local nonSkinButtons = {
+	MiniMapTracking = true,
+	MiniMapTrackingButton =  true,
+}
+
 -- blizzard zones that can be disabled
 local BlizzardZones = {
 	zone  = 'MinimapZoneTextButton',
@@ -114,6 +120,7 @@ local BlizzardZones = {
 	worldmap = 'MiniMapWorldMapButton',
 	garrison = 'GarrisonLandingPageMinimapButton',
 }
+
 -- blizzard zones reversed that can be disabled
 local BlizzardZonesReversed = {
 	TimeManagerClockButton = 'clock',
@@ -239,7 +246,8 @@ local function InsertTableDoubleValue(t,k,v)
 	table.insert(t,k)
 end
 
-local function SkinButton(button, reset)
+local function SkinButton(button, buttonName, reset)
+	if buttonName and nonSkinButtons[buttonName] then return end
 	for _,tex in ipairs({button:GetRegions()}) do
 		if tex:IsObjectType('Texture') and tex:GetDrawLayer()=='OVERLAY' then
 			local rgb = (cfg.blackBorders and not reset) and 0.15 or 1
@@ -250,8 +258,8 @@ local function SkinButton(button, reset)
 end
 
 local function SkinButtons()
-	for _,button in pairs(collectedButtons) do
-		SkinButton(button)
+	for name,button in pairs(collectedButtons) do
+		SkinButton(button,name)
 	end
 	for _, button in ipairs(fillButtons) do
 		SkinButton(button)
@@ -435,6 +443,7 @@ local function Boxed_IterateButtons()
 end
 
 local function Boxed_LayoutButtons()
+	local boxedVisible = next(boxedButtons) and boxedVisible
 	local grow = cfg.buttonsGrowth or 'BOTTOMLEFT'
 	local spacing = (cfg.buttonsSpacing or 0) - 4
 	local max = (cfg.buttonsPerColumn or 50 ) -1
@@ -452,6 +461,7 @@ local function Boxed_LayoutButtons()
 			button:SetPoint( hp1, firstButton, hp2, spacing * hmul, 0)
 			count, firstButton = max, button
 		end
+		button:SetShown(boxedVisible)
 		prevButton = button
 	end
 end
@@ -487,7 +497,7 @@ do
 	function UpdateButtonsVisibilityDelayed()
 		if not timerActive then
 			timerActive = GetTime()
-			C_Timer_After(insideMinimap and delayShow or delayHide,UpdateButtonsVisibility)
+			C_Timer_After(insideMinimap and delayShow or delayHide, UpdateButtonsVisibility)
 		end
 	end
 end
@@ -522,6 +532,12 @@ local function MinimapDragStop(button)
 	end
 end
 
+local function MinimapButtonOnShow(button)
+	if not boxedVisible and boxedButtons[button:GetName()] then
+		button:Hide()
+	end
+end
+
 ---------------------------------------------------------------------------------------------------------
 -- collect buttons from minimap
 ---------------------------------------------------------------------------------------------------------
@@ -535,13 +551,14 @@ local function CollectMinimapButton(name, button)
 		buttonsSorted[#buttonsSorted+1] = name
 		collectedButtons[name] = button
 		if not button.__kmbcHooked then
+			button:HookScript('OnShow', MinimapButtonOnShow)
 			button:HookScript('OnEnter', MinimapOnEnter)
 			button:HookScript('OnLeave', MinimapOnLeave)
 			button:HookScript("OnDragStart", MinimapDragStart)
 			button:HookScript("OnDragStop", MinimapDragStop)
 			button.__kmbcHooked = true
 		end
-		SkinButton(button)
+		SkinButton(button,name)
 		if button~=kiwiButton then
 			if nonBoxedButtons[name]==nil and (cfg.allButtonsBoxed or cfg.bxButtons[name]) then
 				Boxed_BoxButton(button, name)
@@ -561,7 +578,7 @@ local function UncollectMinimapButton(name)
 		else
 			minimapButtons[name] = nil
 		end
-		SkinButton(button, true)
+		SkinButton(button, name, true)
 		RemoveTableValue(buttonsSorted,name)
 		collectedButtons[name] = nil
 		collectTime = GetTime()
@@ -594,6 +611,18 @@ end
 
 local function SortCollectedButtons()
 	table.sort(buttonsSorted, function(a,b) return buttonsSortKeys[a]<buttonsSortKeys[b] end )
+end
+
+local function CollectIconCreatedEvent(_, button)
+		local name = button:GetName()
+		if IsCollectableButton(name, button) then
+		C_Timer_After(0, function()
+			CollectMinimapButton(name, button)
+			SortCollectedButtons()
+			UpdateButtonsVisibility()
+			Boxed_LayoutButtons()
+		end)
+	end
 end
 
 local function CollectFrameButtons(frame)
@@ -704,6 +733,7 @@ addon:SetScript("OnEvent", function(frame, event, name)
 		C_Timer_After( 3, function()
 			CollectMinimapButtons()
 			Boxed_LayoutButtons()
+			minimapLib.RegisterCallback('KiwiMBC', "LibDBIcon_IconCreated", CollectIconCreatedEvent)
 		end)
 	end
 end)
