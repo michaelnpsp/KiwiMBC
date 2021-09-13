@@ -485,11 +485,12 @@ do
 			if boxedVisible and cfg.autoHideBox and not insideMinimap then
 				Boxed_ToggleVisibility()
 			end
-			local allVisible, avButtons = cfg.allButtonsVisible, cfg.avButtons
+			local avButtons = cfg.avButtons
+			local allVisible = insideMinimap or cfg.allButtonsVisible
 			for buttonName, button in pairs(minimapButtons) do
-				button:SetShown( (insideMinimap or allVisible or avButtons[buttonName]) and not button.__kmbcHide )
+				button:SetShown( (allVisible or avButtons[buttonName]) and not button.__kmbcHide )
 			end
-			kiwiButton:SetShown( insideMinimap or allVisible or avButtons[kiwiButton:GetName()] or boxedVisible or cfg.detachedMinimapButton )
+			kiwiButton:SetShown( not cfg.hideKiwiButton and (allVisible or avButtons[kiwiButton:GetName()] or boxedVisible or cfg.detachedMinimapButton) )
 		else
 			UpdateButtonsVisibilityDelayed()
 		end
@@ -909,6 +910,11 @@ end
 -- command line
 ---------------------------------------------------------------------------------------------------------
 
+local function Cfg_KiwiButtonToggle()
+	cfg.hideKiwiButton = not cfg.hideKiwiButton or nil
+	UpdateButtonsVisibility()
+end
+
 SLASH_KIWIMBC1, SLASH_KIWIMBC2 = "/kmbc", "/kiwimbc";
 SlashCmdList.KIWIMBC = function(args)
 	local arg1, arg2, arg3 = strsplit(" ",args,3)
@@ -926,23 +932,28 @@ SlashCmdList.KIWIMBC = function(args)
 		if cfg.detachedMinimapButton then
 			Cfg_DetachedToggle()
 		end
-	elseif arg1~='' then
-		Cfg_BlizToggle(arg1)
+	elseif arg1=='button' then
+		if arg2=='kiwi' then
+			Cfg_KiwiButtonToggle()
+		elseif arg2~='' then
+			Cfg_BlizToggle(arg2)
+		end
 	else
 		print("KiwiMBC (Minimap Buttons Control) commands:")
 		print("  /kiwimbc")
 		print("  /kmbc")
-		print("  /kmbc zone     -zone text visibility")
-		print("  /kmbc clock    -clock visibility")
-		print("  /kmbc time     -time visibility")
-		print("  /kmbc zoom     -zoom buttons visibility")
-		print("  /kmbc toggle   -minimap toggle button visibility")
-		print("  /kmbc worldmap -worldmap button visibility")
-		print("  /kmbc delay [1-50] [1-50] - [hide] [show] delay in tenths of a second")
-		print("  /kmbc collect button_name  - toggle button_name collect status")
-		print("  /kmbc ignore button_name  - toggle button_name ignore status")
-		print("  /kmbc detach - toggle minimap button detach mode")
-		print("  /kmbc reset - reset minimap button position")
+		print("  /kmbc button kiwi              - toggle KiwiMBC button visibility")
+		print("  /kmbc button zone              - toggle blizzard zone text visibility")
+		print("  /kmbc button clock             - toggle blizzard clock visibility")
+		print("  /kmbc button time              - toggle blizzard time visibility")
+		print("  /kmbc button zoom              - toggle blizzard zoom buttons visibility")
+		print("  /kmbc button toggle            - toggle blizzard toggle button visibility")
+		print("  /kmbc button worldmap          - toggle blizzard worldmap button visibility")
+		print("  /kmbc delay [1-50] [1-50]      - [hide] [show] delay in tenths of a second")
+		print("  /kmbc collect button_name      - toggle button_name collect status")
+		print("  /kmbc ignore button_name       - toggle button_name ignore status")
+		print("  /kmbc detach                   - toggle minimap button detach mode")
+		print("  /kmbc reset                    - reset minimap button position")
 		print("\n")
 	end
 	PrintNameList(collectedButtons,     "Collected minimap buttons:")
