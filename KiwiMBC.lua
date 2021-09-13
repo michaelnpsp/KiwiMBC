@@ -104,7 +104,7 @@ local nonBoxedButtons = {
 	GarrisonLandingPageMinimapButton = true,
 }
 
--- blizzard zones
+-- blizzard zones that can be disabled
 local BlizzardZones = {
 	zone  = 'MinimapZoneTextButton',
 	clock = 'TimeManagerClockButton',
@@ -113,6 +113,16 @@ local BlizzardZones = {
 	toggle = 'MinimapToggleButton',
 	worldmap = 'MiniMapWorldMapButton',
 	garrison = 'GarrisonLandingPageMinimapButton',
+}
+-- blizzard zones reversed that can be disabled
+local BlizzardZonesReversed = {
+	TimeManagerClockButton = 'clock',
+	MinimapZoomIn = 'zoom',
+	MinimapZoomOut = 'zoom',
+	GameTimeFrame = 'time',
+	MinimapToggleButton = 'toggle',
+	MiniMapWorldMapButton = 'worldmap',
+	GarrisonLandingPageMinimapButton = 'garrison',
 }
 
 -- blizzard buttons
@@ -164,6 +174,11 @@ local dealyShow = .5
 local boxedButtons = {}
 local boxedVisible = false
 
+-- buttons helper tables
+local buttonsSorted = {}
+local buttonsSortKeys = {}
+local buttonsHumanNames = {}
+
 -- accept/cancel dialog
 StaticPopupDialogs["KIWIBMC_DIALOG"] = { timeout = 0, whileDead = 1, hideOnEscape = 1, button1 = ACCEPT, button2 = CANCEL }
 
@@ -214,6 +229,16 @@ local function RemoveTableValue(t,v)
 	end
 end
 
+local function RemoveTableDoubleValue(t,v)
+	t[v] = nil
+	RemoveTableValue(t,v)
+end
+
+local function InsertTableDoubleValue(t,k,v)
+	t[k] = v
+	table.insert(t,k)
+end
+
 local function SkinButton(button, reset)
 	for _,tex in ipairs({button:GetRegions()}) do
 		if tex:IsObjectType('Texture') and tex:GetDrawLayer()=='OVERLAY' then
@@ -225,7 +250,7 @@ local function SkinButton(button, reset)
 end
 
 local function SkinButtons()
-	for _, button in pairs(collectedButtons) do
+	for _,button in pairs(collectedButtons) do
 		SkinButton(button)
 	end
 	for _, button in ipairs(fillButtons) do
@@ -273,33 +298,6 @@ local function ValidateButtonName(buttonName)
 		end
 	end
 	print( string.format( 'KiwiMBC Error: Minimap button "%s" not found !', buttonName) )
-end
-
-local function IterateBoxedButtons()
-	local f, i, c, name = true, 0, 1
-	return function (k, v)
-		if f then -- return real minimap buttons
-			repeat
-				i = i + 1; name = cfg.bxButtons[i]
-				if name then
-					button = boxedButtons[name]
-					if button then c = c + 1; return button; end
-				end
-			until name==nil
-			local bpc = cfg.buttonsPerColumn or 50
-			f, i, c = false, 0, c>bpc and math.ceil(c/bpc)*bpc-c or 0
-		end
-		if i<c then -- return fake buttons to fill holes not ocuppied by real minimap buttons
-			i = i + 1
-			local button = fillButtons[i]
-			button:SetShown(boxedVisible)
-			return button
-		else -- hide unused fake buttons
-			for j=i+1,#fillButtons do
-				fillButtons[j]:Hide()
-			end
-		end
-	end
 end
 
 ---------------------------------------------------------------------------------------------------------
@@ -374,21 +372,15 @@ end
 -- boxed buttons management
 ---------------------------------------------------------------------------------------------------------
 
-local function Boxed_BoxButton(button)
-	if button then
+local function Boxed_BoxButton(button, name)
+	if button and not nonBoxedButtons[name] then
 		local data = {}
 		for i=1,button:GetNumPoints() do
 			data[i] = { button:GetPoint(i) }
 		end
 		button.__kmbcSavedPosition = data
-		local name = button:GetName()
-		boxedButtons[name]   = button
+		boxedButtons[name] = button
 		minimapButtons[name] = nil
-		local boxed = cfg.bxButtons
-		if not boxed[name] then
-			boxed[name] = true
-			table.insert( boxed, name )
-		end
 		button.__kbmcSavedOnDragStart = button:GetScript('OnDragStart')
 		button.__kbmcSavedOnDragStop  = button:GetScript('OnDragStop')
 		button:SetScript('OnDragStart',nil)
@@ -397,24 +389,48 @@ local function Boxed_BoxButton(button)
 	end
 end
 
-local function Boxed_UnboxButton(button)
-	if button then
+local function Boxed_UnboxButton(button, name)
+	if button and button.__kmbcSavedPosition then
 		button:ClearAllPoints()
 		for _,points in ipairs(button.__kmbcSavedPosition) do
 			button:SetPoint( unpack(points) )
 		end
 		button.__kmbcSavedPosition = nil
-		local name = button:GetName()
 		boxedButtons[name] = nil
 		minimapButtons[name] = button
-		local boxed = cfg.bxButtons
-		boxed[name] = nil
-		RemoveTableValue( boxed, name )
 		boxedVisible = next(boxedButtons) and boxedVisible
 		button:SetScript('OnDragStart',button.__kbmcSavedOnDragStart)
 		button:SetScript('OnDragStop', button.__kbmcSavedOnDragStop)
 		button.__kbmcSavedOnDragStart = nil
 		button.__kbmcSavedOnDragStop  = nil
+	end
+end
+
+local function Boxed_IterateButtons()
+	local f, i, c, name = true, 0, 1
+	local buttons = cfg.allButtonsBoxed and buttonsSorted or cfg.bxButtons
+	return function (k, v)
+		if f then -- return real minimap buttons
+			repeat
+				i = i + 1; name = buttons[i]
+				if name then
+					button = boxedButtons[name]
+					if button then c = c + 1; return button; end
+				end
+			until name==nil
+			local bpc = cfg.buttonsPerColumn or 50
+			f, i, c = false, 0, c>bpc and math.ceil(c/bpc)*bpc-c or 0
+		end
+		if i<c then -- return fake buttons to fill holes not ocuppied by real minimap buttons
+			i = i + 1
+			local button = fillButtons[i]
+			button:SetShown(boxedVisible)
+			return button
+		else -- hide unused fake buttons
+			for j=i+1,#fillButtons do
+				fillButtons[j]:Hide()
+			end
+		end
 	end
 end
 
@@ -427,7 +443,7 @@ local function Boxed_LayoutButtons()
 	local prevButton = kiwiButton
 	local vp1, vp2, vmul = unpack( LayoutPoints[ strmatch(grow, 'TOP')  or 'BOTTOM' ] )
 	local hp1, hp2, hmul = unpack( LayoutPoints[ strmatch(grow, 'LEFT') or 'RIGHT'  ] )
-	for button in IterateBoxedButtons() do
+	for button in Boxed_IterateButtons() do
 		button:ClearAllPoints()
 		if count>0 then
 			button:SetPoint( vp1, prevButton, vp2, 0, spacing * vmul )
@@ -442,7 +458,7 @@ end
 
 local function Boxed_ToggleVisibility()
 	boxedVisible = next(boxedButtons) and not boxedVisible
-	for button in IterateBoxedButtons() do
+	for button in Boxed_IterateButtons() do
 		button:SetShown(boxedVisible)
 	end
 end
@@ -459,16 +475,15 @@ do
 			if boxedVisible and cfg.autoHideBox and not insideMinimap then
 				Boxed_ToggleVisibility()
 			end
-			local alwaysVisible = cfg.avButtons
+			local allVisible, avButtons = cfg.allButtonsVisible, cfg.avButtons
 			for buttonName, button in pairs(minimapButtons) do
-				button:SetShown( (insideMinimap or alwaysVisible[buttonName]) and not button.__kmbcHide )
+				button:SetShown( (insideMinimap or allVisible or avButtons[buttonName]) and not button.__kmbcHide )
 			end
-			kiwiButton:SetShown( insideMinimap or alwaysVisible[kiwiButton:GetName()] or boxedVisible or cfg.detachedMinimapButton )
+			kiwiButton:SetShown( insideMinimap or allVisible or avButtons[kiwiButton:GetName()] or boxedVisible or cfg.detachedMinimapButton )
 		else
 			UpdateButtonsVisibilityDelayed()
 		end
 	end
-
 	function UpdateButtonsVisibilityDelayed()
 		if not timerActive then
 			timerActive = GetTime()
@@ -514,6 +529,10 @@ end
 local function CollectMinimapButton(name, button)
 	button = button or _G[name]
 	if button then
+		local humanName = GetButtonHumanName(name)
+		buttonsHumanNames[name] = humanName
+		buttonsSortKeys[name] = string.format('%02d%s', BlizzardButtonsOrder[name] or 0, humanName)
+		buttonsSorted[#buttonsSorted+1] = name
 		collectedButtons[name] = button
 		if not button.__kmbcHooked then
 			button:HookScript('OnEnter', MinimapOnEnter)
@@ -524,8 +543,8 @@ local function CollectMinimapButton(name, button)
 		end
 		SkinButton(button)
 		if button~=kiwiButton then
-			if cfg.bxButtons[name] then
-				Boxed_BoxButton(button)
+			if nonBoxedButtons[name]==nil and (cfg.allButtonsBoxed or cfg.bxButtons[name]) then
+				Boxed_BoxButton(button, name)
 			else
 				minimapButtons[name] = button
 			end
@@ -538,11 +557,12 @@ local function UncollectMinimapButton(name)
 	local button = collectedButtons[name]
 	if button then
 		if boxedButtons[name] then
-			Boxed_UnboxButton(button)
+			Boxed_UnboxButton(button, name)
 		else
 			minimapButtons[name] = nil
 		end
 		SkinButton(button, true)
+		RemoveTableValue(buttonsSorted,name)
 		collectedButtons[name] = nil
 		collectTime = GetTime()
 		button:Show()
@@ -572,6 +592,10 @@ local function IsCollectableButton(name, button)
 	return name and	not collectedButtons[name] and IsValidButton(name, button)
 end
 
+local function SortCollectedButtons()
+	table.sort(buttonsSorted, function(a,b) return buttonsSortKeys[a]<buttonsSortKeys[b] end )
+end
+
 local function CollectFrameButtons(frame)
 	for _, button in ipairs({frame:GetChildren()}) do
 		local name = button:GetName()
@@ -591,6 +615,7 @@ local function CollectMinimapButtons()
 	CollectFrameButtons(Minimap)
 	CollectFrameButtons(MinimapBackdrop)
 	CollectManualButtons(cfg_global.maButtons)
+	SortCollectedButtons()
 	UpdateButtonsVisibility()
 end
 
@@ -674,6 +699,7 @@ addon:SetScript("OnEvent", function(frame, event, name)
 			CreateMinimapButton()
 			UpdateBlizzardVisibility()
 			CollectMinimapButtons()
+			Boxed_LayoutButtons()
 		end )
 		C_Timer_After( 3, function()
 			CollectMinimapButtons()
@@ -751,16 +777,41 @@ end
 local function Cfg_BoxedToggle(buttonName)
 	buttonName = type(buttonName)=='table' and buttonName.value or buttonName
 	if cfg.bxButtons[buttonName] then
-		Boxed_UnboxButton( boxedButtons[buttonName] )
+		RemoveTableDoubleValue( cfg.bxButtons, buttonName )
+		Boxed_UnboxButton( boxedButtons[buttonName], buttonName )
 	else
-		Boxed_BoxButton( minimapButtons[buttonName] )
+		InsertTableDoubleValue( cfg.bxButtons, buttonName, true )
+		Boxed_BoxButton( minimapButtons[buttonName], buttonName )
 	end
 	Boxed_LayoutButtons()
+end
+
+local function Cfg_BoxedAllToggle()
+	local allBoxed = not cfg.allButtonsBoxed or nil
+	cfg.allButtonsBoxed = allBoxed
+	wipe(cfg.bxButtons)
+	for buttonName,button in pairs(collectedButtons) do
+		if not allBoxed ~= not boxedButtons[buttonName] then
+			if allBoxed then
+				Boxed_BoxButton(button, buttonName)
+			else
+				Boxed_UnboxButton(button, buttonName)
+			end
+		end
+	end
+	Boxed_LayoutButtons()
+	UpdateButtonsVisibility()
 end
 
 local function Cfg_AlwaysToggle(buttonName)
 	buttonName = type(buttonName)=='table' and buttonName.value or buttonName
 	cfg.avButtons[buttonName] = not cfg.avButtons[buttonName] or nil
+	UpdateButtonsVisibility()
+end
+
+local function Cfg_AlwaysAllToggle()
+	wipe(cfg.avButtons)
+	cfg.allButtonsVisible = not cfg.allButtonsVisible or nil
 	UpdateButtonsVisibility()
 end
 
@@ -893,12 +944,21 @@ do
 		return not _G[ BlizzardZones[info.value] ]
 	end
 	-- boxed buttons
+	local function BoxedDisabled(item)
+		return cfg.allButtonsBoxed
+	end
 	local function BoxedGet(info)
-		return cfg.bxButtons[info.value]
+		return cfg.allButtonsBoxed or cfg.bxButtons[info.value]
 	end
 	-- always visible buttons
+	local function AlwaysDisabled(item)
+		return cfg.allButtonsVisible
+	end
+	local function AlwaysHidden(item)
+		return cfg.hide[BlizzardZonesReversed[item.value]] or (cfg.allButtonsBoxed and nonBoxedButtons[item.value]==nil) or cfg.bxButtons[item.value]
+	end
 	local function AlwaysGet(info)
-		return cfg.avButtons[info.value]
+		return cfg.allButtonsVisible or cfg.avButtons[info.value]
 	end
 	-- buttons growth
 	local function GrowthGet(info)
@@ -932,18 +992,13 @@ do
 	local updateTime = -1
 	local function UpdateSubMenus()
 		if collectTime>updateTime then
-			local sortedButtons = {}
-			for buttonName in pairs(collectedButtons) do
-				local humanName = GetButtonHumanName(buttonName)
-				table.insert(sortedButtons, { string.format('%02d%s', BlizzardButtonsOrder[buttonName] or 0, humanName), buttonName, humanName  } )
-			end
-			table.sort(sortedButtons, function(a,b)	return a[1]<b[1] end )
-			wipe(menuAlways); wipe(menuBoxed)
- 			for _,button in ipairs(sortedButtons) do
-				local buttonName, humanName = button[2], button[3]
-				table.insert(menuAlways, {text=humanName, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=AlwaysGet, func=Cfg_AlwaysToggle} )
+			wipe(menuAlways); menuAlways[1] = { text='All Buttons', isNotRadio=true, checked=function() return cfg.allButtonsVisible end, func=Cfg_AlwaysAllToggle }
+			wipe(menuBoxed);  menuBoxed[1]  = { text='All Buttons', isNotRadio=true, checked=function() return cfg.allButtonsBoxed   end, func=Cfg_BoxedAllToggle  }
+ 			for _,buttonName in ipairs(buttonsSorted) do
+				local humanName = buttonsHumanNames[buttonName]
+				table.insert(menuAlways, {text=humanName, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=AlwaysGet, func=Cfg_AlwaysToggle, disable=AlwaysDisabled, hidden=AlwaysHidden} )
 				if not nonBoxedButtons[buttonName] then
-					table.insert(menuBoxed, {text=humanName, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=BoxedGet, func=Cfg_BoxedToggle} )
+					table.insert(menuBoxed, {text=humanName, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=BoxedGet, func=Cfg_BoxedToggle, disable=BoxedDisabled} )
 				end
 			end
 			updateTime = collectTime+0.01
@@ -987,6 +1042,7 @@ do
 		for index, item in ipairs(menuList) do
 			if item.text and (item.hidden==nil or not item.hidden(item)) then
 				item.index = index
+				if item.disable then item.disabled = item.disable(item) end
 				UIDropDownMenu_AddButton(item, level)
 			end
 		end
