@@ -131,6 +131,7 @@ local BlizzardButtonsOrder = {
 local buttonTranslations = {
 	MiniMapTracking = 'Tracking',
 	GarrisonLandingPageMinimapButton = 'Garrison Report',
+	Lib_GPI_Minimap_LFGBulletinBoard = 'LFG Bulletin Board',
 }
 
 -- layout stuff
@@ -549,43 +550,48 @@ local function UncollectMinimapButton(name)
 	end
 end
 
-local CollectMinimapButtons
-do
-	local function IsValidButton(name, button)
-		if Ignore[name] or cfg_global.baButtons[name] then -- blacklisted buttons
-			return false
-		end
-		if Valid[name] or cfg_global.maButtons[name] then  -- whitelisted buttons
-			return true
-		end
-		if button:IsShown() and (button:HasScript('OnClick') or button:HasScript('OnMouseDown')) then -- looks like a frame button ?
-			for _,pattern in ipairs(Ignore) do
-				if strfind(name, pattern) then -- patterns to ignore (example: Questie creates a lot of icons/buttons parented to the minimap)
-					return false
-				end
-			end
-			return true
-		end
+local function IsValidButton(name, button)
+	if Ignore[name] or cfg_global.baButtons[name] then -- blacklisted buttons
+		return false
 	end
-	local function CollectFrameButtons(frame)
-		for _, button in ipairs({frame:GetChildren()}) do
-			local name = button:GetName()
-			if name and	not collectedButtons[name] and IsValidButton(name, button) then
-				CollectMinimapButton(name, button)
+	if Valid[name] or cfg_global.maButtons[name] then  -- whitelisted buttons
+		return true
+	end
+	if button:IsShown() and (button:HasScript('OnClick') or button:HasScript('OnMouseDown')) then -- looks like a frame button ?
+		for _,pattern in ipairs(Ignore) do
+			if strfind(name, pattern) then -- patterns to ignore (example: Questie creates a lot of icons/buttons parented to the minimap)
+				return false
 			end
 		end
+		return true
 	end
-	local function CollectManualButtons(buttons)
-		for name in pairs(buttons) do
-			CollectMinimapButton(name)
+end
+
+local function IsCollectableButton(name, button)
+	button = button or _G[name]
+	return name and	not collectedButtons[name] and IsValidButton(name, button)
+end
+
+local function CollectFrameButtons(frame)
+	for _, button in ipairs({frame:GetChildren()}) do
+		local name = button:GetName()
+		if IsCollectableButton(name, button) then
+			CollectMinimapButton(name, button)
 		end
 	end
-	function CollectMinimapButtons()
-		CollectFrameButtons(Minimap)
-		CollectFrameButtons(MinimapBackdrop)
-		CollectManualButtons(cfg_global.maButtons)
-		UpdateButtonsVisibility()
+end
+
+local function CollectManualButtons(buttons)
+	for name in pairs(buttons) do
+		CollectMinimapButton(name)
 	end
+end
+
+local function CollectMinimapButtons()
+	CollectFrameButtons(Minimap)
+	CollectFrameButtons(MinimapBackdrop)
+	CollectManualButtons(cfg_global.maButtons)
+	UpdateButtonsVisibility()
 end
 
 ---------------------------------------------------------------------------------------------------------
@@ -749,7 +755,7 @@ local function Cfg_BoxedToggle(buttonName)
 	else
 		Boxed_BoxButton( minimapButtons[buttonName] )
 	end
-	 Boxed_LayoutButtons()
+	Boxed_LayoutButtons()
 end
 
 local function Cfg_AlwaysToggle(buttonName)
