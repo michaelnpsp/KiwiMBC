@@ -108,6 +108,9 @@ local nonBoxedButtons = {
 local nonSkinButtons = {
 	MiniMapTracking = true,
 	MiniMapTrackingButton =  true,
+	MinimapZoomIn = true,
+	MinimapZoomOut = true,
+	GarrisonLandingPageMinimapButton = true,
 }
 
 -- blizzard zones that can be disabled
@@ -905,15 +908,14 @@ local function Cfg_ButtonsGrowthSet(info)
 	Boxed_LayoutButtons()
 end
 
-
----------------------------------------------------------------------------------------------------------
--- command line
----------------------------------------------------------------------------------------------------------
-
 local function Cfg_KiwiButtonToggle()
 	cfg.hideKiwiButton = not cfg.hideKiwiButton or nil
 	UpdateButtonsVisibility()
 end
+
+---------------------------------------------------------------------------------------------------------
+-- command line
+---------------------------------------------------------------------------------------------------------
 
 SLASH_KIWIMBC1, SLASH_KIWIMBC2 = "/kmbc", "/kiwimbc";
 SlashCmdList.KIWIMBC = function(args)
