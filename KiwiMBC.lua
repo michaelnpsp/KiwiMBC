@@ -7,7 +7,6 @@ local versionToc = GetAddOnMetadata(addon.addonName,"Version")
 versionToc = versionToc=='@project-version@' and 'Dev' or 'v'..versionToc
 
 --- libraries
-
 local minimapLDB
 local minimapLib = LibStub("LibDBIcon-1.0")
 
@@ -333,7 +332,6 @@ local function LoadDatabase()
 	delayShow = cfg.delayShow or 0.5
 end
 
-
 ---------------------------------------------------------------------------------------------------------
 -- blizzard buttons visibility
 ---------------------------------------------------------------------------------------------------------
@@ -374,7 +372,7 @@ local function SetupEvents()
 		addon:RegisterEvent('GARRISON_SHOW_LANDING_PAGE')
 		addon:SetScript( 'OnEvent', function(frame, event)
 			GarrisonLandingPageMinimapButton.__kmbcDisabled = (event=='GARRISON_HIDE_LANDING_PAGE')
-			UpdateZoneVisibility( 'garrison',GarrisonLandingPageMinimapButton)
+			UpdateZoneVisibility('garrison',GarrisonLandingPageMinimapButton)
 		end)
 	end
 end
