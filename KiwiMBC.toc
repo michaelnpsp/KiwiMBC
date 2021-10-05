@@ -9,6 +9,7 @@
 ## X-Curse-Project-ID: 521325
 ## SavedVariables: KiwiMBCDB
 ## SavedVariablesPerCharacter: KiwiMBCDBC
+## OptionalDeps: ItemRack
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml

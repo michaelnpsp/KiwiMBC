@@ -259,6 +259,25 @@ local function SkinButton(button, buttonName, reset)
 	end
 end
 
+local SkinItemRackButtons
+do
+	local coordb = {0.05,0.95,0.05,0.95}
+	local coordw = {0,1,0,1}
+	function SkinItemRackButtons(reset)
+		if cfg.skinItemRack or reset then
+			local rgb = (cfg.blackBorders and not reset) and 0.35 or 1
+			local coo = (cfg.blackBorders and not reset) and coordb or coordw
+			for index=0,30 do
+				local icon = _G['ItemRackButton'..index..'Icon']
+				if not icon then break end
+				icon:SetTexCoord( unpack(coo) )
+				local border = _G['ItemRackButton'..index..'NormalTexture']
+				border:SetVertexColor(rgb,rgb,rgb,1)
+			end
+		end
+	end
+end
+
 local function SkinButtons()
 	for name,button in pairs(collectedButtons) do
 		SkinButton(button,name)
@@ -266,6 +285,7 @@ local function SkinButtons()
 	for _, button in ipairs(fillButtons) do
 		SkinButton(button)
 	end
+	SkinItemRackButtons()
 end
 
 local function GetButtonHumanName(buttonName)
@@ -733,6 +753,7 @@ addon:SetScript("OnEvent", function(frame, event, name)
 			Boxed_LayoutButtons()
 		end )
 		C_Timer_After( 3, function()
+			SkinItemRackButtons()
 			CollectMinimapButtons()
 			Boxed_LayoutButtons()
 			minimapLib.RegisterCallback('KiwiMBC', "LibDBIcon_IconCreated", CollectIconCreatedEvent)
@@ -911,6 +932,11 @@ local function Cfg_KiwiButtonToggle()
 	UpdateButtonsVisibility()
 end
 
+local function Cfg_ItemRackToggle()
+	cfg.skinItemRack = not cfg.skinItemRack or nil
+	SkinItemRackButtons(not cfg.skinItemRack)
+end
+
 ---------------------------------------------------------------------------------------------------------
 -- command line
 ---------------------------------------------------------------------------------------------------------
@@ -938,6 +964,8 @@ SlashCmdList.KIWIMBC = function(args)
 		elseif arg2~='' then
 			Cfg_BlizToggle(arg2)
 		end
+	elseif arg1=='itemrack' then
+		Cfg_ItemRackToggle()
 	else
 		print("KiwiMBC (Minimap Buttons Control) commands:")
 		print("  /kiwimbc")
@@ -954,6 +982,7 @@ SlashCmdList.KIWIMBC = function(args)
 		print("  /kmbc ignore button_name       - toggle button_name ignore status")
 		print("  /kmbc detach                   - toggle minimap button detach mode")
 		print("  /kmbc reset                    - reset minimap button position")
+		print("  /kmbc itemrack skin            - toggle ItemRack buttons skinning")
 		print("\n")
 	end
 	PrintNameList(collectedButtons,     "Collected minimap buttons:")
