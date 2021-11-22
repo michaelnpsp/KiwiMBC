@@ -3,8 +3,16 @@
 local addon = CreateFrame('Frame')
 addon.addonName = ...
 
+-- addon version
 local versionToc = GetAddOnMetadata(addon.addonName,"Version")
 versionToc = versionToc=='@project-version@' and 'Dev' or 'v'..versionToc
+
+-- game version
+local versionCli = select(4,GetBuildInfo())
+local isClassic = versionCli<30000 -- vanilla or tbc
+local isVanilla = versionCli<20000
+local isTBC     = versionCli>=20000 and versionCli<30000
+local isWoW90   = versionCli>=90000
 
 --- libraries
 local minimapLDB
@@ -358,15 +366,23 @@ end
 
 local UpdateBlizzardVisibility, UpdateZoneVisibility
 do
+	local function ForceHide(self) -- in vanilla classic the game shows the worldmap if is hidden
+		if self.__kmbcHide then
+			self:Hide()
+		end
+	end
 	local function HideZoneText()
 		MinimapZoneTextButton:SetShown(not cfg.hide.zone)
 		MinimapBorderTop:SetAlpha( cfg.hide.zone and 0 or 1)
 	end
-	function UpdateZoneVisibility( name, frame )
+	function UpdateZoneVisibility( name, frame, forceHide )
 		if frame then
 			local hidden = frame.__kmbcDisabled or cfg.hide[name] or nil
 			frame:SetShown(not hidden)
 			frame.__kmbcHide = hidden
+			if hidden and forceHide then
+				frame:HookScript('OnShow', ForceHide)
+			end
 		end
 	end
 	function UpdateBlizzardVisibility()
@@ -375,7 +391,7 @@ do
 		UpdateZoneVisibility( 'zoom',  MinimapZoomIn )
 		UpdateZoneVisibility( 'time',  GameTimeFrame )
 		UpdateZoneVisibility( 'toggle', MinimapToggleButton )
-		UpdateZoneVisibility( 'worldmap', MiniMapWorldMapButton )
+		UpdateZoneVisibility( 'worldmap', MiniMapWorldMapButton, isVanilla )
 		UpdateZoneVisibility( 'garrison', GarrisonLandingPageMinimapButton )
 		HideZoneText()
 	end
