@@ -154,6 +154,11 @@ local BlizzardButtonsOrder = {
 	GarrisonLandingPageMinimapButton = 8,
 }
 
+-- by default we asume border texture (to darken) is in OVERLAY layer
+local BlizzardButtonsBorderLayer = {
+	TimeManagerClockButton = 'BORDER',
+}
+
 -- button human description translations
 local buttonTranslations = {
 	MiniMapTracking = 'Tracking',
@@ -258,13 +263,18 @@ end
 
 local function SkinButton(button, buttonName, reset)
 	if buttonName and nonSkinButtons[buttonName] then return end
+	local layer = buttonName and BlizzardButtonsBorderLayer[buttonName] or 'OVERLAY'
 	for _,tex in ipairs({button:GetRegions()}) do
-		if tex:IsObjectType('Texture') and tex:GetDrawLayer()=='OVERLAY' then
+		if tex:IsObjectType('Texture') and tex:GetDrawLayer()==layer then
 			local rgb = (cfg.blackBorders and not reset) and 0.15 or 1
 			tex:SetVertexColor(rgb,rgb,rgb,1)
 			return
 		end
 	end
+end
+
+local function SkinBlizzardButtons()
+	if isVanilla then SkinButton(TimeManagerClockButton, 'TimeManagerClockButton') end
 end
 
 local SkinItemRackButtons
@@ -293,6 +303,7 @@ local function SkinButtons()
 	for _, button in ipairs(fillButtons) do
 		SkinButton(button)
 	end
+	SkinBlizzardButtons()
 	SkinItemRackButtons()
 end
 
@@ -767,6 +778,7 @@ addon:SetScript("OnEvent", function(frame, event, name)
 			UpdateBlizzardVisibility()
 			CollectMinimapButtons()
 			Boxed_LayoutButtons()
+			SkinBlizzardButtons()
 		end )
 		C_Timer_After( 3, function()
 			SkinItemRackButtons()
