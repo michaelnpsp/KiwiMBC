@@ -274,7 +274,10 @@ local function SkinButton(button, buttonName, reset)
 end
 
 local function SkinBlizzardButtons()
-	if isVanilla then SkinButton(TimeManagerClockButton, 'TimeManagerClockButton') end
+	if isVanilla then -- because in vanilla LortiUI does not skin these buttons
+		SkinButton(TimeManagerClockButton, 'TimeManagerClockButton')
+		SkinButton(MiniMapTrackingFrame, 'MiniMapTrackingFrame')
+	end
 end
 
 local SkinItemRackButtons
