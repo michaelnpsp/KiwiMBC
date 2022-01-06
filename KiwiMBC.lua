@@ -43,6 +43,7 @@ local gdefaults = { -- global defaults (data shared by all characters)
 local Ignore = {
 	"Questie", -- needed to ignore trillions of questie icons (QuestieFrameNNN)
 	"SexyMap",
+	"NWB",  -- Nova World Buffs addon buttons
 	"KiwiMBCBoxFiller",
 	ActionBar = true,
 	BonusActionButton = true,
