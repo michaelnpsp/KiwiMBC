@@ -274,10 +274,17 @@ local function SkinButton(button, buttonName, reset)
 	end
 end
 
+local function SkinBorder(tex, reset)
+	local rgb = (cfg.blackBorders and not reset) and 0.15 or 1
+	tex:SetVertexColor(rgb,rgb,rgb,1)
+end
+
 local function SkinBlizzardButtons()
 	if isVanilla then -- because in vanilla LortiUI does not skin these buttons
 		SkinButton(TimeManagerClockButton, 'TimeManagerClockButton')
 		SkinButton(MiniMapTrackingFrame, 'MiniMapTrackingFrame')
+		SkinBorder(MiniMapBattlefieldBorder)
+		SkinBorder(MiniMapLFGBorder)
 	end
 end
 
