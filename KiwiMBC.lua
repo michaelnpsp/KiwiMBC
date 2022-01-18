@@ -92,6 +92,7 @@ local Ignore = {
 	FeedbackUIButton = true,
 	MiniMapTrackingFrame = true,
 	QuestieFrameGroup = true,
+	MinimapLayerFrame = true, -- NovaWorldBuffs layer text
 }
 
 -- valid button frames
@@ -439,6 +440,18 @@ end
 -- boxed buttons management
 ---------------------------------------------------------------------------------------------------------
 
+local BoxCustomFixes = {
+	['Lib_GPI_Minimap_LFGBulletinBoard'] = {
+		function(button) -- box
+			button.__KiwiHookPrev = button.Lib_GPI_MinimapButton.UpdatePosition
+			button.Lib_GPI_MinimapButton.UpdatePosition	= function() end
+		end,
+		function(button) -- unbox
+			button.Lib_GPI_MinimapButton.UpdatePosition	= button.__KiwiHookPrev
+		end,
+	},
+}
+
 local function Boxed_BoxButton(button, name)
 	if button and not nonBoxedButtons[name] then
 		local data = {}
@@ -452,6 +465,8 @@ local function Boxed_BoxButton(button, name)
 		button.__kbmcSavedOnDragStop  = button:GetScript('OnDragStop')
 		button:SetScript('OnDragStart',nil)
 		button:SetScript('OnDragStop',nil)
+		-- button:SetFrameStrata('HIGH') -- does not work i don't know why
+		if BoxCustomFixes[name] then BoxCustomFixes[name][1](button) end
 		button:SetShown(boxedVisible)
 	end
 end
@@ -470,6 +485,8 @@ local function Boxed_UnboxButton(button, name)
 		button:SetScript('OnDragStop', button.__kbmcSavedOnDragStop)
 		button.__kbmcSavedOnDragStart = nil
 		button.__kbmcSavedOnDragStop  = nil
+		-- button:SetFrameStrata('MEDIUM')
+		if BoxCustomFixes[name] then BoxCustomFixes[name][2](button) end
 	end
 end
 
@@ -602,6 +619,19 @@ end
 -- collect buttons from minimap
 ---------------------------------------------------------------------------------------------------------
 
+-- BagSync addon minimap button lacks a border texture so we must create the missing border
+local function FixBagSyncAddonButton(button)
+	local border = button.KiwiBorder
+	if not border then
+		border = button:CreateTexture(nil, "OVERLAY")
+		border:SetSize(53, 53)
+		border:SetTexture(136430) --"Interface\\Minimap\\MiniMap-TrackingBorder"
+		border:SetPoint("TOPLEFT")
+		border:Show()
+		button.KiwiBorder = border
+	end
+end
+
 local function CollectMinimapButton(name, button)
 	button = button or _G[name]
 	if button then
@@ -617,6 +647,9 @@ local function CollectMinimapButton(name, button)
 			button:HookScript("OnDragStart", MinimapDragStart)
 			button:HookScript("OnDragStop", MinimapDragStop)
 			button.__kmbcHooked = true
+		end
+		if name == "BagSync_MinimapButton" then
+			FixBagSyncAddonButton(button)
 		end
 		SkinButton(button,name)
 		if button~=kiwiButton then
