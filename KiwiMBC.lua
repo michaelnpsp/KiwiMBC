@@ -485,6 +485,7 @@ local function Boxed_UnboxButton(button, name)
 		button:SetScript('OnDragStop', button.__kbmcSavedOnDragStop)
 		button.__kbmcSavedOnDragStart = nil
 		button.__kbmcSavedOnDragStop  = nil
+		button:Show()
 		-- button:SetFrameStrata('MEDIUM')
 		if BoxCustomFixes[name] then BoxCustomFixes[name][2](button) end
 	end
@@ -653,7 +654,7 @@ local function CollectMinimapButton(name, button)
 		end
 		SkinButton(button,name)
 		if button~=kiwiButton then
-			if nonBoxedButtons[name]==nil and (cfg.allButtonsBoxed or cfg.bxButtons[name]) then
+			if nonBoxedButtons[name]==nil and cfg.allButtonsBoxed~=cfg.bxButtons[name] then
 				Boxed_BoxButton(button, name)
 			else
 				minimapButtons[name] = button
@@ -903,9 +904,12 @@ local function Cfg_BoxedToggle(buttonName)
 	buttonName = type(buttonName)=='table' and buttonName.value or buttonName
 	if cfg.bxButtons[buttonName] then
 		RemoveTableDoubleValue( cfg.bxButtons, buttonName )
-		Boxed_UnboxButton( boxedButtons[buttonName], buttonName )
 	else
 		InsertTableDoubleValue( cfg.bxButtons, buttonName, true )
+	end
+	if boxedButtons[buttonName] then
+		Boxed_UnboxButton( boxedButtons[buttonName], buttonName )
+	else
 		Boxed_BoxButton( minimapButtons[buttonName], buttonName )
 	end
 	Boxed_LayoutButtons()
@@ -916,12 +920,10 @@ local function Cfg_BoxedAllToggle()
 	cfg.allButtonsBoxed = allBoxed
 	wipe(cfg.bxButtons)
 	for buttonName,button in pairs(collectedButtons) do
-		if not allBoxed ~= not boxedButtons[buttonName] then
-			if allBoxed then
-				Boxed_BoxButton(button, buttonName)
-			else
-				Boxed_UnboxButton(button, buttonName)
-			end
+		if allBoxed then
+			Boxed_BoxButton(button, buttonName)
+		else
+			Boxed_UnboxButton(button, buttonName)
 		end
 	end
 	Boxed_LayoutButtons()
@@ -1087,10 +1089,12 @@ do
 	end
 	-- boxed buttons
 	local function BoxedDisabled(item)
-		return cfg.allButtonsBoxed
+		-- return cfg.allButtonsBoxed
+		return false
 	end
 	local function BoxedGet(info)
-		return cfg.allButtonsBoxed or cfg.bxButtons[info.value]
+		-- return cfg.allButtonsBoxed or cfg.bxButtons[info.value]
+		return cfg.bxButtons[info.value]
 	end
 	-- always visible buttons
 	local function AlwaysDisabled(item)
@@ -1135,7 +1139,7 @@ do
 	local function UpdateSubMenus()
 		if collectTime>updateTime then
 			wipe(menuAlways); menuAlways[1] = { text='All Buttons', isNotRadio=true, checked=function() return cfg.allButtonsVisible end, func=Cfg_AlwaysAllToggle }
-			wipe(menuBoxed);  menuBoxed[1]  = { text='All Buttons', isNotRadio=true, checked=function() return cfg.allButtonsBoxed   end, func=Cfg_BoxedAllToggle  }
+			wipe(menuBoxed);  menuBoxed[1]  = { text='|cFFFFFF00All Buttons Except:|r', isNotRadio=true, checked=function() return cfg.allButtonsBoxed end, func=Cfg_BoxedAllToggle  }
  			for _,buttonName in ipairs(buttonsSorted) do
 				local humanName = buttonsHumanNames[buttonName]
 				table.insert(menuAlways, {text=humanName, value=buttonName, isNotRadio=true, keepShownOnClick=1, checked=AlwaysGet, func=Cfg_AlwaysToggle, disable=AlwaysDisabled, hidden=AlwaysHidden} )
