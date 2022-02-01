@@ -41,9 +41,10 @@ local gdefaults = { -- global defaults (data shared by all characters)
 
 --- frames to ignore in minimap button collection
 local Ignore = {
+	"NWB",  -- Nova World Buffs addon buttons
 	"Questie", -- needed to ignore trillions of questie icons (QuestieFrameNNN)
 	"SexyMap",
-	"NWB",  -- Nova World Buffs addon buttons
+	"GatherMatePin",
 	"KiwiMBCBoxFiller",
 	ActionBar = true,
 	BonusActionButton = true,
@@ -485,9 +486,9 @@ local function Boxed_UnboxButton(button, name)
 		button:SetScript('OnDragStop', button.__kbmcSavedOnDragStop)
 		button.__kbmcSavedOnDragStart = nil
 		button.__kbmcSavedOnDragStop  = nil
-		button:Show()
 		-- button:SetFrameStrata('MEDIUM')
 		if BoxCustomFixes[name] then BoxCustomFixes[name][2](button) end
+		button:Show()
 	end
 end
 
