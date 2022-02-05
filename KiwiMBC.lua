@@ -415,7 +415,7 @@ do
 		UpdateZoneVisibility( 'zoom',  MinimapZoomIn )
 		UpdateZoneVisibility( 'time',  GameTimeFrame )
 		UpdateZoneVisibility( 'toggle', MinimapToggleButton )
-		UpdateZoneVisibility( 'worldmap', MiniMapWorldMapButton, isVanilla )
+		UpdateZoneVisibility( 'worldmap', MiniMapWorldMapButton, isClassic )
 		UpdateZoneVisibility( 'garrison', GarrisonLandingPageMinimapButton )
 		HideZoneText()
 	end
