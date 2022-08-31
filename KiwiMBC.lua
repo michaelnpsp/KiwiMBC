@@ -9,7 +9,7 @@ versionToc = versionToc=='@project-version@' and 'Dev' or 'v'..versionToc
 
 -- game version
 local versionCli = select(4,GetBuildInfo())
-local isClassic = versionCli<30000 -- vanilla or tbc
+local isClassic = versionCli<40000 -- vanilla or tbc or wrath
 local isVanilla = versionCli<20000
 local isTBC     = versionCli>=20000 and versionCli<30000
 local isWoW90   = versionCli>=90000
