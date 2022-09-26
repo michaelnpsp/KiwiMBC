@@ -12,6 +12,7 @@ local versionCli = select(4,GetBuildInfo())
 local isClassic = versionCli<40000 -- vanilla or tbc or wrath
 local isVanilla = versionCli<20000
 local isTBC     = versionCli>=20000 and versionCli<30000
+local isWrath   = versionCli>=30000 and versionCli<40000
 local isWoW90   = versionCli>=90000
 
 --- libraries
@@ -282,11 +283,13 @@ local function SkinBorder(tex, reset)
 end
 
 local function SkinBlizzardButtons()
-	if isVanilla then -- because in vanilla LortiUI does not skin these buttons
+	if isVanilla then -- if isVanilla then -- because in vanilla LortiUI does not skin these buttons
 		SkinButton(TimeManagerClockButton, 'TimeManagerClockButton')
 		SkinButton(MiniMapTrackingFrame, 'MiniMapTrackingFrame')
 		SkinBorder(MiniMapBattlefieldBorder)
 		SkinBorder(MiniMapLFGBorder)
+	elseif isWrath then
+		SkinBorder(MiniMapTrackingButtonBorder)
 	end
 end
 
