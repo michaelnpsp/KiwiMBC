@@ -5,7 +5,7 @@ addon.addonName = ...
 
 -- addon version
 local versionToc = GetAddOnMetadata(addon.addonName,"Version")
-versionToc = versionToc=='@project-version@' and 'Dev' or 'v'..versionToc
+versionToc = versionToc=='\@project-version\@' and 'Dev' or 'v'..versionToc
 
 -- game version
 local versionCli = select(4,GetBuildInfo())
