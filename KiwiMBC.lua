@@ -29,7 +29,7 @@ local C_Timer_After = C_Timer.After
 
 --- savedvariables defaults
 local defaults = { -- default settings
-	hide         = { clock = false, zoom = false, time = false, zone = false, toggle = false, worldmap = false, garrison = false }, -- blizzard buttons
+	hide         = { clock = false, zoom = false, time = false, zone = false, toggle = false, worldmap = false, garrison = false, expansion = false }, -- blizzard buttons
 	bxButtons    = {}, -- boxed buttons
 	avButtons    = {}, -- always visible buttons
 	minimapIcon  = {}, -- used by LibDBIcon-1.0
@@ -102,6 +102,7 @@ local Valid = {
 	MinimapZoomIn = true,
 	MinimapZoomOut = true,
 	GarrisonLandingPageMinimapButton = true,
+	ExpansionLandingPageMinimapButton = true,
 	LibDBIcon10_Questie = true,
 }
 
@@ -113,6 +114,7 @@ local nonBoxedButtons = {
 	MinimapZoomIn = true,
 	MinimapZoomOut = true,
 	GarrisonLandingPageMinimapButton = true,
+	ExpansionLandingPageMinimapButton = true,
 }
 
 -- buttons cannot be skined
@@ -122,6 +124,7 @@ local nonSkinButtons = {
 	MinimapZoomIn = true,
 	MinimapZoomOut = true,
 	GarrisonLandingPageMinimapButton = true,
+	ExpansionLandingPageMinimapButton = true,
 }
 
 -- blizzard zones that can be disabled
@@ -133,6 +136,7 @@ local BlizzardZones = {
 	toggle = 'MinimapToggleButton',
 	worldmap = 'MiniMapWorldMapButton',
 	garrison = 'GarrisonLandingPageMinimapButton',
+	expansion = 'ExpansionLandingPageMinimapButton',
 }
 
 -- blizzard zones reversed that can be disabled
@@ -144,6 +148,7 @@ local BlizzardZonesReversed = {
 	MinimapToggleButton = 'toggle',
 	MiniMapWorldMapButton = 'worldmap',
 	GarrisonLandingPageMinimapButton = 'garrison',
+	ExpansionLandingPageMinimapButton = 'expansion',
 }
 
 -- blizzard buttons
@@ -156,6 +161,7 @@ local BlizzardButtonsOrder = {
 	MiniMapWorldMapButton = 6,
 	TimeManagerClockButton = 7,
 	GarrisonLandingPageMinimapButton = 8,
+	ExpansionLandingPageMinimapButton = 9,
 }
 
 -- by default we asume border texture (to darken) is in OVERLAY layer
@@ -167,6 +173,7 @@ local BlizzardButtonsBorderLayer = {
 local buttonTranslations = {
 	MiniMapTracking = 'Tracking',
 	GarrisonLandingPageMinimapButton = 'Garrison Report',
+	ExpansionLandingPageMinimapButton = 'Covenant Report',
 	Lib_GPI_Minimap_LFGBulletinBoard = 'LFG Bulletin Board',
 }
 
@@ -399,8 +406,8 @@ do
 		end
 	end
 	local function HideZoneText()
-		MinimapZoneTextButton:SetShown(not cfg.hide.zone)
-		MinimapBorderTop:SetAlpha( cfg.hide.zone and 0 or 1)
+		if MinimapZoneTextButton then MinimapZoneTextButton:SetShown(not cfg.hide.zone) end
+		if MinimapBorderTop      then MinimapBorderTop:SetAlpha( cfg.hide.zone and 0 or 1) end
 	end
 	function UpdateZoneVisibility( name, frame, forceHide )
 		if frame then
@@ -419,7 +426,7 @@ do
 		UpdateZoneVisibility( 'time',  GameTimeFrame )
 		UpdateZoneVisibility( 'toggle', MinimapToggleButton )
 		UpdateZoneVisibility( 'worldmap', MiniMapWorldMapButton, isClassic )
-		UpdateZoneVisibility( 'garrison', GarrisonLandingPageMinimapButton )
+		UpdateZoneVisibility( 'expansion', ExpansionLandingPageMinimapButton )
 		HideZoneText()
 	end
 end
@@ -430,14 +437,15 @@ end
 
 local function SetupEvents()
 	addon:UnregisterAllEvents()
-	if GarrisonLandingPageMinimapButton then
+	if ExpansionLandingPageMinimapButton then
 		addon:RegisterEvent('GARRISON_HIDE_LANDING_PAGE')
 		addon:RegisterEvent('GARRISON_SHOW_LANDING_PAGE')
 		addon:SetScript( 'OnEvent', function(frame, event)
-			GarrisonLandingPageMinimapButton.__kmbcDisabled = (event=='GARRISON_HIDE_LANDING_PAGE')
-			UpdateZoneVisibility('garrison',GarrisonLandingPageMinimapButton)
+			ExpansionLandingPageMinimapButton.__kmbcDisabled = (event=='GARRISON_HIDE_LANDING_PAGE')
+			UpdateZoneVisibility('expansion',ExpansionLandingPageMinimapButton)
 		end)
 	end
+
 end
 
 ---------------------------------------------------------------------------------------------------------
@@ -1168,6 +1176,7 @@ do
 			{ text='Toggle',          value='toggle',   isNotRadio=true, keepShownOnClick=1, hidden=BlizHidden, checked=BlizGet, func=Cfg_BlizToggle },
 			{ text='World Map',       value='worldmap', isNotRadio=true, keepShownOnClick=1, hidden=BlizHidden, checked=BlizGet, func=Cfg_BlizToggle },
 			{ text='Garrison Report', value='garrison', isNotRadio=true, keepShownOnClick=1, hidden=BlizHidden, checked=BlizGet, func=Cfg_BlizToggle },
+			{ text='Covenant Report', value='expansion',isNotRadio=true, keepShownOnClick=1, hidden=BlizHidden, checked=BlizGet, func=Cfg_BlizToggle },
 		} },
 		{ text = 'Buttons in a Box', notCheckable= true, isTitle = true },
 		{ text = 'Boxed Buttons',    notCheckable= true, hasArrow = true, menuList = menuBoxed },
