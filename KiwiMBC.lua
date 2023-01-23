@@ -856,7 +856,11 @@ minimapLDB = LibStub("LibDataBroker-1.1", true):NewDataObject("KiwiMBC", {
 	icon = "Interface\\Addons\\KiwiMBC\\icon",
 	OnClick = function(self, button)
 		if button=="LeftButton" then
-			Boxed_ToggleVisibility()
+			if cfg.reloadUI and IsShiftKeyDown() then
+				ReloadUI()
+			else
+				Boxed_ToggleVisibility()
+			end
 		elseif button=="RightButton" then
 			addon:ShowPopupMenu()
 		end
@@ -1193,6 +1197,7 @@ do
 		{ text = 'Detach Minimap Button', isNotRadio=true, checked = function() return cfg.detachedMinimapButton end, func = Cfg_DetachedToggle },
 		{ text = 'Lock Minimap Button', isNotRadio=true, hidden = function() return not cfg.detachedMinimapButton end, checked = function() return cfg.lockedMinimapButton end, func = Cfg_LockedToggle },
 		{ text = 'Draw Dark Borders', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.blackBorders end, func = Cfg_DarkToggle },
+		{ text = 'Shift-Click Reloads UI', isNotRadio=true, checked = function() return cfg.reloadUI end, func = function() cfg.reloadUI = (not cfg.reloadUI) or nil end },
 		{ text = 'Use Character Profile', isNotRadio=true, checked = function() return KiwiMBCDBC~=nil end, func = Cfg_ProfileToggle },
 		{ text = 'Close Menu', notCheckable = 1, func = function() menuFrame:Hide() end },
 	}
