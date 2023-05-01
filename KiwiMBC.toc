@@ -7,6 +7,7 @@
 ## Notes: Minimap buttons manager
 ## Author: MiChaEl
 ## Version: @project-version@
+## IconTexture: Interface/AddOns/KiwiMBC/icon.tga
 ## X-Curse-Project-ID: 521325
 ## X-Wago-ID: RqGYylGg
 ## SavedVariables: KiwiMBCDB
