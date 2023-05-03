@@ -47,6 +47,7 @@ local Ignore = {
 	"SexyMap",
 	"GatherMatePin",
 	"KiwiMBCBoxFiller",
+	"HandyNotesPin",
 	ActionBar = true,
 	BonusActionButton = true,
 	MainMenu = true,
