@@ -4,6 +4,7 @@ local addon = CreateFrame('Frame')
 addon.addonName = ...
 
 -- addon version
+local GetAddOnMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
 local versionToc = GetAddOnMetadata(addon.addonName,"Version")
 versionToc = versionToc=='\@project-version\@' and 'Dev' or 'v'..versionToc
 
