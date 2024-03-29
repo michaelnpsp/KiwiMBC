@@ -725,14 +725,15 @@ local function SortCollectedButtons()
 end
 
 local function CollectIconCreatedEvent(_, button)
-		local name = button:GetName()
-		if IsCollectableButton(name, button) then
+	local name = button:GetName()
+	if IsCollectableButton(name, button) then
 		C_Timer_After(0, function()
 			CollectMinimapButton(name, button)
 			SortCollectedButtons()
 			UpdateButtonsVisibility()
 			Boxed_LayoutButtons()
 		end)
+		return true
 	end
 end
 
