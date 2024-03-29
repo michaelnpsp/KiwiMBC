@@ -703,12 +703,15 @@ local function IsValidButton(name, button)
 		return true
 	end
 	if button:IsShown() and (button:HasScript('OnClick') or button:HasScript('OnMouseDown')) then -- looks like a frame button ?
-		for _,pattern in ipairs(Ignore) do
-			if strfind(name, pattern) then -- patterns to ignore (example: Questie creates a lot of icons/buttons parented to the minimap)
-				return false
+		local w, h = button:GetSize()
+		if w~=0 and h~=0 and math.max(w,h)/math.min(w,h)<1.3 then -- check size an aspect ratio
+			for _,pattern in ipairs(Ignore) do
+				if strfind(name, pattern) then -- patterns to ignore (example: Questie creates a lot of icons/buttons parented to the minimap)
+					return false
+				end
 			end
+			return true
 		end
-		return true
 	end
 end
 
