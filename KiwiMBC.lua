@@ -856,6 +856,8 @@ end)
 -- minimap&ldb button
 ---------------------------------------------------------------------------------------------------------
 
+local GetAddOnInfo = C_AddOns and C_AddOns.GetAddOnInfo or GetAddOnInfo
+
 minimapLDB = LibStub("LibDataBroker-1.1", true):NewDataObject("KiwiMBC", {
 	type  = "launcher",
 	label = GetAddOnInfo("KiwiMBC", "Title"),
