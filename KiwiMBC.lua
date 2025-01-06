@@ -289,8 +289,10 @@ local function SkinButton(button, buttonName, reset)
 end
 
 local function SkinBorder(tex, reset)
-	local rgb = (cfg.blackBorders and not reset) and 0.15 or 1
-	tex:SetVertexColor(rgb,rgb,rgb,1)
+	if tex then
+		local rgb = (cfg.blackBorders and not reset) and 0.15 or 1
+		tex:SetVertexColor(rgb,rgb,rgb,1)
+	end
 end
 
 local function SkinBlizzardButtons()
