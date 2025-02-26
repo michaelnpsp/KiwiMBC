@@ -221,7 +221,7 @@ StaticPopupDialogs["KIWIBMC_DIALOG"] = { timeout = 0, whileDead = 1, hideOnEscap
 local fillButtons = setmetatable( {}, {
 	__index = function(t,i)
 		local button = CreateFrame("Button", "LibDBIcon10_KiwiMBCBoxFiller"..i, Minimap)
-		button:SetFrameStrata("MEDIUM")
+		button:SetFrameStrata("DIALOG")
 		button:SetSize(31, 31)
 		local overlay = button:CreateTexture(nil, "OVERLAY")
 		overlay:SetSize(53, 53)
