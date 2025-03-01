@@ -339,7 +339,7 @@ end
 local function GetButtonHumanName(buttonName)
 	local name = buttonTranslations[buttonName]
 	if not name then
-		name = string.match(buttonName,'^LibDBIcon10_(.+)$') or gsub(buttonName,'MinimapButton','')
+		name = string.match(buttonName,'^LibDBIcon10_(.+)$') or string.match(buttonName,'^MinimapButton_D4Lib_LibDBIcon_(.+)$') or gsub(buttonName,'MinimapButton','')
 		name = gsub( name, '[_-]', ' ' )
 		name = gsub( name, 'Broker', '' )
 		name = gsub( name, 'Minimap', '' )
