@@ -378,6 +378,27 @@ local function ValidateButtonName(buttonName)
 	print( string.format( 'KiwiMBC Error: Minimap button "%s" not found !', buttonName) )
 end
 
+-- Fix visility for minimap button of DarkMode addon that uses a custom D4MinimapButton library
+local function FixD4MinimapButton(button)
+	if button.fadeOut and boxedButtons[button:GetName()] then
+		button.fadeOut:Stop()
+		button:SetAlpha(1)
+	end
+end
+
+-- Fix BagSync addon minimap button lacks a border texture so we must create the missing border
+local function FixBagSyncAddonButton(button)
+	local border = button.KiwiBorder
+	if not border then
+		border = button:CreateTexture(nil, "OVERLAY")
+		border:SetSize(53, 53)
+		border:SetTexture(136430) --"Interface\\Minimap\\MiniMap-TrackingBorder"
+		border:SetPoint("TOPLEFT")
+		border:Show()
+		button.KiwiBorder = border
+	end
+end
+
 ---------------------------------------------------------------------------------------------------------
 -- savedvariables database
 ---------------------------------------------------------------------------------------------------------
@@ -485,12 +506,14 @@ local function Boxed_BoxButton(button, name)
 		button:SetScript('OnDragStop',nil)
 		-- button:SetFrameStrata('HIGH') -- does not work i don't know why
 		if BoxCustomFixes[name] then BoxCustomFixes[name][1](button) end
+		if button.__isD4Button then button:SetParent(kiwiButton) end
 		button:SetShown(boxedVisible)
 	end
 end
 
 local function Boxed_UnboxButton(button, name)
 	if button and button.__kmbcSavedPosition then
+		if button.__isD4Button then button:SetParent(Minimap) end
 		button:ClearAllPoints()
 		for _,points in ipairs(button.__kmbcSavedPosition) do
 			button:SetPoint( unpack(points) )
@@ -607,6 +630,7 @@ local function MinimapOnEnter(f)
 		insideMinimap = true
 		UpdateButtonsVisibilityDelayed()
 	end
+	if f.__isD4Button then FixD4MinimapButton(f) end
 end
 
 local function MinimapOnLeave(f)
@@ -614,6 +638,7 @@ local function MinimapOnLeave(f)
 		insideMinimap = false
 		UpdateButtonsVisibilityDelayed()
 	end
+	if f.__isD4Button then FixD4MinimapButton(f) end
 end
 
 local function MinimapDragStart(button)
@@ -638,19 +663,6 @@ end
 -- collect buttons from minimap
 ---------------------------------------------------------------------------------------------------------
 
--- BagSync addon minimap button lacks a border texture so we must create the missing border
-local function FixBagSyncAddonButton(button)
-	local border = button.KiwiBorder
-	if not border then
-		border = button:CreateTexture(nil, "OVERLAY")
-		border:SetSize(53, 53)
-		border:SetTexture(136430) --"Interface\\Minimap\\MiniMap-TrackingBorder"
-		border:SetPoint("TOPLEFT")
-		border:Show()
-		button.KiwiBorder = border
-	end
-end
-
 local function CollectMinimapButton(name, button)
 	button = button or _G[name]
 	if button then
@@ -666,6 +678,9 @@ local function CollectMinimapButton(name, button)
 			button:HookScript("OnDragStart", MinimapDragStart)
 			button:HookScript("OnDragStop", MinimapDragStop)
 			button.__kmbcHooked = true
+		end
+		if strfind(name,'^MinimapButton_D4Lib_LibDBIcon_.+$') then  -- classic DarkMode addon
+			button.__isD4Button = true
 		end
 		if name == "BagSync_MinimapButton" then
 			FixBagSyncAddonButton(button)
