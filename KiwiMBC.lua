@@ -31,9 +31,10 @@ local C_Timer_After = C_Timer.After
 --- savedvariables defaults
 local defaults = { -- default settings
 	hide         = { clock = false, zoom = false, time = false, zone = false, toggle = false, worldmap = false, garrison = false, expansion = false }, -- blizzard buttons
+	minimapIcon  = {}, -- used by LibDBIcon-1.0
 	bxButtons    = {}, -- boxed buttons
 	avButtons    = {}, -- always visible buttons
-	minimapIcon  = {}, -- used by LibDBIcon-1.0
+	idButtons    = nil, -- order of buttons
 }
 
 local gdefaults = { -- global defaults (data shared by all characters)
@@ -221,7 +222,7 @@ StaticPopupDialogs["KIWIBMC_DIALOG"] = { timeout = 0, whileDead = 1, hideOnEscap
 local fillButtons = setmetatable( {}, {
 	__index = function(t,i)
 		local button = CreateFrame("Button", "LibDBIcon10_KiwiMBCBoxFiller"..i, Minimap)
-		button:SetFrameStrata("DIALOG")
+		button:SetFrameStrata("HIGH")
 		button:SetSize(31, 31)
 		local overlay = button:CreateTexture(nil, "OVERLAY")
 		overlay:SetSize(53, 53)
@@ -399,7 +400,7 @@ local function FixBagSyncAddonButton(button)
 	end
 end
 
----------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------
 -- savedvariables database
 ---------------------------------------------------------------------------------------------------------
 
@@ -479,62 +480,23 @@ end
 -- boxed buttons management
 ---------------------------------------------------------------------------------------------------------
 
-local BoxCustomFixes = {
-	['Lib_GPI_Minimap_LFGBulletinBoard'] = {
-		function(button) -- box
-			button.__KiwiHookPrev = button.Lib_GPI_MinimapButton.UpdatePosition
-			button.Lib_GPI_MinimapButton.UpdatePosition	= function() end
-		end,
-		function(button) -- unbox
-			button.Lib_GPI_MinimapButton.UpdatePosition	= button.__KiwiHookPrev
-		end,
-	},
-}
-
-local function Boxed_BoxButton(button, name)
-	if button and not nonBoxedButtons[name] then
-		local data = {}
-		for i=1,button:GetNumPoints() do
-			data[i] = { button:GetPoint(i) }
+local function Boxed_CustomSortEnable(enabled)
+	if not enabled~=not cfg.idButtons then
+		if cfg.idButtons then
+			cfg.idButtons = nil
+		else
+			cfg.idButtons = {}
+			for i,name in ipairs(buttonsSorted) do
+				cfg.idButtons[i] = name
+				cfg.idButtons[name] = i
+			end
 		end
-		button.__kmbcSavedPosition = data
-		boxedButtons[name] = button
-		minimapButtons[name] = nil
-		button.__kbmcSavedOnDragStart = button:GetScript('OnDragStart')
-		button.__kbmcSavedOnDragStop  = button:GetScript('OnDragStop')
-		button:SetScript('OnDragStart',nil)
-		button:SetScript('OnDragStop',nil)
-		-- button:SetFrameStrata('HIGH') -- does not work i don't know why
-		if BoxCustomFixes[name] then BoxCustomFixes[name][1](button) end
-		if button.__isD4Button then button:SetParent(kiwiButton) end
-		button:SetShown(boxedVisible)
-	end
-end
-
-local function Boxed_UnboxButton(button, name)
-	if button and button.__kmbcSavedPosition then
-		if button.__isD4Button then button:SetParent(Minimap) end
-		button:ClearAllPoints()
-		for _,points in ipairs(button.__kmbcSavedPosition) do
-			button:SetPoint( unpack(points) )
-		end
-		button.__kmbcSavedPosition = nil
-		boxedButtons[name] = nil
-		minimapButtons[name] = button
-		boxedVisible = next(boxedButtons) and boxedVisible
-		button:SetScript('OnDragStart',button.__kbmcSavedOnDragStart)
-		button:SetScript('OnDragStop', button.__kbmcSavedOnDragStop)
-		button.__kbmcSavedOnDragStart = nil
-		button.__kbmcSavedOnDragStop  = nil
-		-- button:SetFrameStrata('MEDIUM')
-		if BoxCustomFixes[name] then BoxCustomFixes[name][2](button) end
-		button:Show()
 	end
 end
 
 local function Boxed_IterateButtons()
 	local f, i, c, name = true, 0, 1
-	local buttons = cfg.allButtonsBoxed and buttonsSorted or cfg.bxButtons
+	local buttons = cfg.idButtons or buttonsSorted
 	return function (k, v)
 		if f then -- return real minimap buttons
 			repeat
@@ -581,6 +543,83 @@ local function Boxed_LayoutButtons()
 		end
 		button:SetShown(boxedVisible)
 		prevButton = button
+	end
+end
+
+local function Boxed_DragStart(self)
+	SetCursor('Interface\\CURSOR\\QuestInteract')
+end
+
+local function Boxed_DragEnd(src)
+	SetCursor(nil)
+	for name, dst in next, boxedButtons do
+		if dst:IsMouseOver() and dst:IsVisible() then
+			Boxed_CustomSortEnable(true)
+			local buttons  = cfg.idButtons
+			local src_name = src:GetName()
+			local dst_name = dst:GetName()
+			local src_idx  = buttons[src_name]
+			local dst_idx  = buttons[dst_name]
+			buttons[src_idx]  = dst_name
+			buttons[dst_idx]  = src_name
+			buttons[src_name] = dst_idx
+			buttons[dst_name] = src_idx
+			Boxed_LayoutButtons()
+			return
+		end
+	end
+end
+
+local function Boxed_BoxButton(button, name)
+	if button and not nonBoxedButtons[name] then
+		local data = {}
+		for i=1,button:GetNumPoints() do
+			data[i] = { button:GetPoint(i) }
+		end
+		button.__kmbcSavedPosition = data
+		boxedButtons[name] = button
+		minimapButtons[name] = nil
+		button.__kbmcSavedOnDragStart = button:GetScript('OnDragStart')
+		button.__kbmcSavedOnDragStop  = button:GetScript('OnDragStop')
+		button:SetScript('OnDragStart',Boxed_DragStart)
+		button:SetScript('OnDragStop',Boxed_DragEnd)
+		if button.__isD4Button then
+			button:SetParent(kiwiButton)
+		elseif name=='Lib_GPI_Minimap_LFGBulletinBoard' then
+			button.__KiwiHookPrev = button.Lib_GPI_MinimapButton.UpdatePosition
+			button.Lib_GPI_MinimapButton.UpdatePosition	= function() end
+		end
+		button:SetFixedFrameStrata(false)
+		button:SetFrameStrata("HIGH")
+		button:SetFixedFrameStrata(true)
+		button:SetShown(boxedVisible)
+	end
+end
+
+local function Boxed_UnboxButton(button, name)
+	if button and button.__kmbcSavedPosition then
+		if button.__isD4Button then
+			button:SetParent(Minimap)
+		elseif name=='Lib_GPI_Minimap_LFGBulletinBoard' then
+			button.Lib_GPI_MinimapButton.UpdatePosition	= button.__KiwiHookPrev
+		end
+		button:ClearAllPoints()
+		for _,points in ipairs(button.__kmbcSavedPosition) do
+			button:SetPoint( unpack(points) )
+		end
+		button.__kmbcSavedPosition = nil
+		button.__kmbIndex = nil
+		boxedButtons[name] = nil
+		minimapButtons[name] = button
+		boxedVisible = next(boxedButtons) and boxedVisible
+		button:SetScript('OnDragStart',button.__kbmcSavedOnDragStart)
+		button:SetScript('OnDragStop', button.__kbmcSavedOnDragStop)
+		button.__kbmcSavedOnDragStart = nil
+		button.__kbmcSavedOnDragStop  = nil
+		button:SetFixedFrameStrata(false)
+		button:SetFrameStrata('MEDIUM')
+		button:SetFixedFrameStrata(true)
+		button:Show()
 	end
 end
 
@@ -670,7 +709,10 @@ local function CollectMinimapButton(name, button)
 		buttonsHumanNames[name] = humanName
 		buttonsSortKeys[name] = string.format('%02d%s', BlizzardButtonsOrder[name] or 0, humanName)
 		buttonsSorted[#buttonsSorted+1] = name
-		collectedButtons[name] = button
+		if cfg.idButtons and not cfg.idButtons[name] then
+			cfg.idButtons[#cfg.idButtons+1] = name
+			cfg.idButtons[name] = #cfg.idButtons
+		end
 		if not button.__kmbcHooked then
 			button:HookScript('OnShow', MinimapButtonOnShow)
 			button:HookScript('OnEnter', MinimapOnEnter)
@@ -694,6 +736,7 @@ local function CollectMinimapButton(name, button)
 			end
 		end
 		collectTime = GetTime()
+		collectedButtons[name] = button
 	end
 end
 
@@ -740,7 +783,7 @@ local function IsCollectableButton(name, button)
 end
 
 local function SortCollectedButtons()
-	table.sort(buttonsSorted, function(a,b) return buttonsSortKeys[a]<buttonsSortKeys[b] end )
+	table.sort(buttonsSorted, function(a,b) return buttonsSortKeys[a]<buttonsSortKeys[b] end)
 end
 
 local function CollectIconCreatedEvent(_, button)
@@ -1044,6 +1087,11 @@ local function Cfg_ButtonsGrowthSet(info)
 	Boxed_LayoutButtons()
 end
 
+local function Cfg_ButtonsOrderSet(info)
+	Boxed_CustomSortEnable(info.value~=1)
+	Boxed_LayoutButtons()
+end
+
 local function Cfg_KiwiButtonToggle()
 	cfg.hideKiwiButton = not cfg.hideKiwiButton or nil
 	UpdateButtonsVisibility()
@@ -1149,6 +1197,10 @@ do
 	local function AlwaysGet(info)
 		return cfg.allButtonsVisible or cfg.avButtons[info.value]
 	end
+	-- buttons order
+	local function OrderGet(info)
+		return (cfg.idButtons and 2 or 1)== info.value
+	end
 	-- buttons growth
 	local function GrowthGet(info)
 		return (cfg.buttonsGrowth or 'BOTTOMLEFT') == info.value
@@ -1219,6 +1271,10 @@ do
 		} },
 		{ text = 'Buttons Spacing',  notCheckable= true, hasArrow = true,  menuList = CreateRange('buttonsSpacing', SpacingRange) },
 		{ text = 'Buttons Per Column',  notCheckable= true, hasArrow = true, menuList = CreateRange('buttonsPerColumn', ColRange) },
+		{ text = 'Buttons Order', notCheckable= true, hasArrow = true, menuList = {
+			{ text='Alphabetical Order',  value=1,  checked=OrderGet, func=Cfg_ButtonsOrderSet },
+			{ text='User Defined Order', value=2, checked=OrderGet, func=Cfg_ButtonsOrderSet },
+		} },
 		{ text = 'Auto Hide Buttons', isNotRadio=true, keepShownOnClick = 1, checked = function() return cfg.autoHideBox end, func = Cfg_AutoHideBoxToggle },
 		{ text = 'Miscellaneous', notCheckable= true, isTitle = true },
 		{ text = 'Detach Minimap Button', isNotRadio=true, checked = function() return cfg.detachedMinimapButton end, func = Cfg_DetachedToggle },
