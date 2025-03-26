@@ -541,6 +541,7 @@ local function Boxed_LayoutButtons()
 			button:SetPoint( hp1, firstButton, hp2, spacing * hmul, 0)
 			count, firstButton = max, button
 		end
+		button.__kmbcPoint = { button:GetPoint() }
 		button:SetShown(boxedVisible)
 		prevButton = button
 	end
@@ -607,8 +608,8 @@ local function Boxed_UnboxButton(button, name)
 		for _,points in ipairs(button.__kmbcSavedPosition) do
 			button:SetPoint( unpack(points) )
 		end
+		button.__kmbcPoint = nil
 		button.__kmbcSavedPosition = nil
-		button.__kmbIndex = nil
 		boxedButtons[name] = nil
 		minimapButtons[name] = button
 		boxedVisible = next(boxedButtons) and boxedVisible
@@ -695,6 +696,12 @@ end
 local function MinimapButtonOnShow(button)
 	if not boxedVisible and boxedButtons[button:GetName()] then
 		button:Hide()
+		C_Timer.After(0, function()
+			if button:GetNumPoints()~=1 and button.__kmbcPoint then
+				button:ClearAllPoints()
+				button:SetPoint( unpack(button.__kmbcPoint) )
+			end
+		end)
 	end
 end
 
@@ -723,8 +730,7 @@ local function CollectMinimapButton(name, button)
 		end
 		if strfind(name,'^MinimapButton_D4Lib_LibDBIcon_.+$') then  -- classic DarkMode addon
 			button.__isD4Button = true
-		end
-		if name == "BagSync_MinimapButton" then
+		elseif name == "BagSync_MinimapButton" then
 			FixBagSyncAddonButton(button)
 		end
 		SkinButton(button,name)
@@ -1306,5 +1312,13 @@ do
 		local uiScale = UIParent:GetEffectiveScale()
 		UIDropDownMenu_SetAnchor(menuFrame, x/uiScale, y/uiScale, 'TOPRIGHT', UIParent, 'BOTTOMLEFT')
 		MyEasyMenu(menuTable, menuFrame, nil, 0 , 0, 1)
+	end
+end
+
+
+function TEST()
+	print("------------------------")
+	for name, button in pairs(boxedButtons) do
+		print(">", name, button:GetNumPoints() )
 	end
 end
