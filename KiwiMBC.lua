@@ -554,7 +554,7 @@ end
 local function Boxed_DragEnd(src)
 	SetCursor(nil)
 	for name, dst in next, boxedButtons do
-		if dst:IsMouseOver() and dst:IsVisible() then
+		if dst:IsMouseOver() and dst:IsVisible() and src~=dst then
 			Boxed_CustomSortEnable(true)
 			local buttons  = cfg.idButtons
 			local src_name = src:GetName()
