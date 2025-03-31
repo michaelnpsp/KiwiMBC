@@ -1314,11 +1314,3 @@ do
 		MyEasyMenu(menuTable, menuFrame, nil, 0 , 0, 1)
 	end
 end
-
-
-function TEST()
-	print("------------------------")
-	for name, button in pairs(boxedButtons) do
-		print(">", name, button:GetNumPoints() )
-	end
-end
